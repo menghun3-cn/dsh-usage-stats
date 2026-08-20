@@ -41,10 +41,10 @@ dsh plugin --profile web add "github:menghun3-cn/dsh-usage-stats"
 - `catalog/catalog-source.json` — 来源 manifest（`catalog-source.schema.json` v1.0.0）
 - `catalog/v1/plugins.json` — 标准 provider page（`catalog-provider-page.schema.json` v1.0.0）
 
-**使用前提（重要）**：市场托管安装只接受 npm registry 的精确稳定版本，git 条目仅可浏览。`dsh-usage-stats` 这个 npm 名已被其他项目占用，因此目录条目身份使用 `@ychris12138/dsh-usage-stats`（当前可用）。要启用 GUI「安装」按钮，需先发布：
+**使用前提（重要）**：市场托管安装只接受 npm registry 的精确稳定版本，git 条目仅可浏览。目录条目身份与仓库包名 `dsh-usage-stats` 对齐。要启用 GUI「安装」按钮，需先发布：
 
-1. 仓库包身份已统一为 `@ychris12138/dsh-usage-stats`；每次发版需同步 `package.json` / `package-lock.json` / `catalog/v1/plugins.json` 的版本。
-2. 发布 scoped 公共包：`npm publish --access public`。
+1. 仓库包身份已统一为 `dsh-usage-stats`；每次发版需同步 `package.json` / `package-lock.json` / `catalog/v1/plugins.json` 的版本。
+2. 发布公共包：`npm publish`。
 3. 把 `catalog/v1/plugins.json` 内容发布到 `https://menghun3-cn.github.io/dsh-usage-stats/v1/plugins`（GitHub Pages，manifest 与 endpoint 必须同源、HTTPS 443、无凭据）。
 4. 在 DSH 插件市场 → 来源管理 → 添加来源，粘贴 manifest URL：`https://menghun3-cn.github.io/dsh-usage-stats/catalog-source.json`，选择后即可走「可恢复安装边界」GUI 安装。
 

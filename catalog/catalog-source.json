@@ -1,16 +1,16 @@
 {
   "manifestVersion": "1.0.0",
-  "providerId": "io.github.ychris12138.dsh-usage-stats",
+  "providerId": "io.github.menghun3-cn.dsh-usage-stats",
   "name": "DSH Usage Stats",
   "description": "Token usage heatmap, provider balances, and subscription quotas for the dsh web GUI. 标准来源接入（Path A），便于在 DSH 插件市场内通过 GUI 直接安装。",
-  "homepage": "https://github.com/Ychris12138/dsh-usage-stats",
+  "homepage": "https://github.com/menghun3-cn/dsh-usage-stats",
   "attribution": {
-    "name": "Ychris12138",
-    "url": "https://github.com/Ychris12138"
+    "name": "menghun3-cn",
+    "url": "https://github.com/menghun3-cn"
   },
   "transport": {
     "kind": "https-json",
-    "endpoint": "https://ychris12138.github.io/dsh-usage-stats/v1/plugins",
+    "endpoint": "https://menghun3-cn.github.io/dsh-usage-stats/v1/plugins",
     "method": "GET"
   },
   "query": {
