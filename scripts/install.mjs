@@ -18,7 +18,7 @@ if (args.has("--help")) {
 	console.log(`dsh-usage-stats installer
 
 Usage:
-  npx --yes github:Ychris12138/dsh-usage-stats [options]
+  npx --yes github:menghun3-cn/dsh-usage-stats [options]
 
 Options:
   --check      Verify the installed package and Cordis patch without changing them

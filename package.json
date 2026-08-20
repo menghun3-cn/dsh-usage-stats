@@ -4,10 +4,10 @@
   "version": "0.2.6",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ychris12138/dsh-usage-stats.git"
+    "url": "git+https://github.com/menghun3-cn/dsh-usage-stats.git"
   },
-  "homepage": "https://github.com/Ychris12138/dsh-usage-stats#readme",
-  "bugs": "https://github.com/Ychris12138/dsh-usage-stats/issues",
+  "homepage": "https://github.com/menghun3-cn/dsh-usage-stats#readme",
+  "bugs": "https://github.com/menghun3-cn/dsh-usage-stats/issues",
   "keywords": [
     "deepseek",
     "deepseek-harness",

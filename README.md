@@ -1,7 +1,7 @@
 # dsh-usage-stats
 
-[![GitHub Release](https://img.shields.io/github/v/release/Ychris12138/dsh-usage-stats?display_name=tag&sort=semver&color=1f6feb)](https://github.com/Ychris12138/dsh-usage-stats/releases/latest)
-[![CI](https://github.com/Ychris12138/dsh-usage-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/Ychris12138/dsh-usage-stats/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/menghun3-cn/dsh-usage-stats?display_name=tag&sort=semver&color=1f6feb)](https://github.com/menghun3-cn/dsh-usage-stats/releases/latest)
+[![CI](https://github.com/menghun3-cn/dsh-usage-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/menghun3-cn/dsh-usage-stats/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-2da44e)](LICENSE)
 
 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 网页端提供多供应商账户监测与 Token 用量分析。
@@ -29,7 +29,7 @@ Provider balances, subscription quotas, and token-usage analytics for the DeepSe
 需要 DeepSeek Harness `web` profile（`@deepseek-ai/dsh >= 0.1.0-rc.6`）。
 
 ```bash
-dsh plugin --profile web add "github:Ychris12138/dsh-usage-stats"
+dsh plugin --profile web add "github:menghun3-cn/dsh-usage-stats"
 ```
 
 然后重启已经运行的 `dsh web`，并在浏览器中硬刷新。侧边栏底部会出现“用量/余额”（Usage/Balance）入口。
@@ -45,8 +45,8 @@ dsh plugin --profile web add "github:Ychris12138/dsh-usage-stats"
 
 1. 仓库包身份已统一为 `@ychris12138/dsh-usage-stats`；每次发版需同步 `package.json` / `package-lock.json` / `catalog/v1/plugins.json` 的版本。
 2. 发布 scoped 公共包：`npm publish --access public`。
-3. 把 `catalog/v1/plugins.json` 内容发布到 `https://ychris12138.github.io/dsh-usage-stats/v1/plugins`（GitHub Pages，manifest 与 endpoint 必须同源、HTTPS 443、无凭据）。
-4. 在 DSH 插件市场 → 来源管理 → 添加来源，粘贴 manifest URL：`https://ychris12138.github.io/dsh-usage-stats/catalog-source.json`，选择后即可走「可恢复安装边界」GUI 安装。
+3. 把 `catalog/v1/plugins.json` 内容发布到 `https://menghun3-cn.github.io/dsh-usage-stats/v1/plugins`（GitHub Pages，manifest 与 endpoint 必须同源、HTTPS 443、无凭据）。
+4. 在 DSH 插件市场 → 来源管理 → 添加来源，粘贴 manifest URL：`https://menghun3-cn.github.io/dsh-usage-stats/catalog-source.json`，选择后即可走「可恢复安装边界」GUI 安装。
 
 > 若最终包名不同，请同步修改 `catalog-source.json` 的 `providerId`/`transport.endpoint` 与 `catalog/v1/plugins.json` 的身份字段。发布前目录条目可浏览但安装保持禁用（fail-closed，属预期）。
 
@@ -63,7 +63,7 @@ dsh plugin --profile web remove dsh-usage-stats
 PowerShell、命令提示符和 macOS/Linux 终端使用同一条命令：
 
 ```bash
-npx --yes github:Ychris12138/dsh-usage-stats
+npx --yes github:menghun3-cn/dsh-usage-stats
 ```
 
 安装器会把运行文件复制到 `~/.dsh/profiles/node_modules/dsh-usage-stats`，并在 `profiles/web/cordis.patch.yml` 中幂等启用插件。重复运行即可更新，不会重复追加配置。设置了 `DSH_HOME` 时使用该目录。
@@ -72,13 +72,13 @@ npx --yes github:Ychris12138/dsh-usage-stats
 
 ```bash
 # 预览，不修改文件
-npx --yes github:Ychris12138/dsh-usage-stats --dry-run
+npx --yes github:menghun3-cn/dsh-usage-stats --dry-run
 
 # 检查现有安装
-npx --yes github:Ychris12138/dsh-usage-stats --check
+npx --yes github:menghun3-cn/dsh-usage-stats --check
 
 # 安装但不修改 Cordis patch
-npx --yes github:Ychris12138/dsh-usage-stats --no-enable
+npx --yes github:menghun3-cn/dsh-usage-stats --no-enable
 ```
 
 无法使用 `npx` 时可从源码运行 `node scripts/install.mjs`。
@@ -254,7 +254,7 @@ Passion（provider id 为 `passion` 或域名为 `*.passionapi.com`）会自动�
 
 ```text
 Install or update dsh-usage-stats from:
-https://github.com/Ychris12138/dsh-usage-stats
+https://github.com/menghun3-cn/dsh-usage-stats
 
 Constraints:
 - Resolve DSH_HOME from the environment; otherwise use ~/.dsh.
@@ -264,8 +264,8 @@ Constraints:
 
 Procedure:
 1. Confirm node, npx, and dsh are available.
-2. Prefer `dsh plugin --profile web update dsh-usage-stats` when already installed; otherwise use `dsh plugin --profile web add "github:Ychris12138/dsh-usage-stats"`.
-3. If unavailable, use: npx --yes github:Ychris12138/dsh-usage-stats
+2. Prefer `dsh plugin --profile web update dsh-usage-stats` when already installed; otherwise use `dsh plugin --profile web add "github:menghun3-cn/dsh-usage-stats"`.
+3. If unavailable, use: npx --yes github:menghun3-cn/dsh-usage-stats
 4. Do not combine bundle installation with an existing manual dsh-usage-stats Cordis entry.
 5. For npx, require a verified package and exactly one Cordis entry, then run again with --check.
 6. Report the installation path and resolved profile paths.
@@ -289,7 +289,7 @@ Optional monitor setup:
 只获准检查而不能修改时运行：
 
 ```bash
-npx --yes github:Ychris12138/dsh-usage-stats --check
+npx --yes github:menghun3-cn/dsh-usage-stats --check
 ```
 
 安装器退出码：未知参数返回 `2`；文件、版本或配置验证失败返回非零；成功时输出已验证版本、安装目录和 patch 路径。Agent 无需自行解析或重写 YAML。
