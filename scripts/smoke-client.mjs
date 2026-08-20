@@ -282,6 +282,39 @@ if (fmtCurrency(void 0, "CNY") !== "—") throw new Error("missing amount must r
 if (fmtCurrency("9.9", "USD").includes("¥")) throw new Error("USD must not render as ¥");
 console.log("currency formatting ok:", cny);
 
+// Chinese-unit token formatting: large counts must read as 亿/万, small counts
+// stay exact, and nothing below 1 万 may gain a unit suffix.
+const { fmtZh, WeekBars } = exports_;
+if (fmtZh(172340000) !== "1.7234亿") throw new Error(`unexpected fmtZh: ${fmtZh(172340000)}`);
+if (fmtZh(99991230) !== "9999.123万") throw new Error(`unexpected fmtZh: ${fmtZh(99991230)}`);
+if (fmtZh(11200) !== "1.12万") throw new Error(`unexpected fmtZh: ${fmtZh(11200)}`);
+if (fmtZh(12345678) !== "1234.5678万") throw new Error(`unexpected fmtZh: ${fmtZh(12345678)}`);
+if (fmtZh(10000) !== "1万") throw new Error(`unexpected fmtZh: ${fmtZh(10000)}`);
+if (fmtZh(9999) !== "9999") throw new Error("values below 1 万 must stay exact");
+if (fmtZh(0) !== "0") throw new Error("zero must render as 0");
+console.log("fmtZh chinese-unit formatting ok");
+
+// Render the last-7-days bar chart: every bar must be a selectable button, the
+// tallest day maps to the deepest bar, and zero-token days still get a stub.
+const weekDays = [];
+const weekNow = new Date();
+for (let i = 6; i >= 0; i -= 1) {
+	const d = new Date(weekNow.getFullYear(), weekNow.getMonth(), weekNow.getDate() - i);
+	const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+	weekDays.push({ date: key, tokens: [0, 1000, 100000, 123456789, 42, 9999, 500000][i], cacheHitRate: 90 });
+}
+const weekMarkup = renderToStaticMarkup(react.createElement(WeekBars, {
+	days: weekDays,
+	translate: (key) => key,
+	selectedKey: null,
+	onSelect: () => {}
+}));
+if ((weekMarkup.match(/usg_weekBar"|usg_weekBar /g) ?? []).length !== 7) throw new Error("week chart must render exactly 7 bars");
+if (!weekMarkup.includes("1.2346亿")) throw new Error("week chart tooltips must use chinese units");
+if (!weekMarkup.includes("usg_weekBarFill")) throw new Error("week chart bars missing their fill");
+if (!weekMarkup.includes("usg_weekBarLabel")) throw new Error("week chart bars missing their weekday label");
+console.log("week bar chart render ok, markup length:", weekMarkup.length);
+
 // Collapsed-badge account value + warning policy (v0.2.0 unified account model).
 const { badgeAccountValue, badgeWarnOf } = exports_;
 // balance just above the threshold => normal, no warning
