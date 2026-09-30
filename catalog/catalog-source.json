@@ -2,7 +2,7 @@
   "manifestVersion": "1.0.0",
   "providerId": "io.github.menghun3-cn.dsh-usage-stats",
   "name": "DSH Usage Stats",
-  "description": "Token usage heatmap, provider balances, and subscription quotas for the dsh web GUI. 标准来源接入（Path A），便于在 DSH 插件市场内通过 GUI 直接安装。",
+  "description": "Token usage stats, provider balances, and subscription quotas for the dsh web GUI. 标准来源接入（Path A），便于在 DSH 插件市场内通过 GUI 直接安装。",
   "homepage": "https://github.com/menghun3-cn/dsh-usage-stats",
   "attribution": {
     "name": "menghun3-cn",

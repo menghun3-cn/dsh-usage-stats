@@ -64,7 +64,7 @@ try {
 
 	const brokenLegacyPatch = `[]
 
-# dsh-usage-stats: token usage heatmap + DeepSeek balance
+# dsh-usage-stats: token usage + DeepSeek balance
 - insert:
     - id: usage-stats
       name: dsh-usage-stats
@@ -92,7 +92,7 @@ try {
 	assert.equal([...patch.matchAll(pluginEntry)].length, 1);
 	const installed = JSON.parse(await readFile(join(home, "profiles", "node_modules", "dsh-usage-stats", "package.json"), "utf8"));
 	assert.equal(installed.name, "dsh-usage-stats");
-	assert.equal(installed.dsh?.bundle?.patch, "./cordis.patch.yml");
+	assert.deepEqual(installed.dsh?.bundle?.patch, ["./cordis.patch.yml"]);
 	assert.match(
 		await readFile(join(home, "profiles", "node_modules", "dsh-usage-stats", "cordis.patch.yml"), "utf8"),
 		/^\s+name:\s*dsh-usage-stats\s*$/m

@@ -36,7 +36,7 @@ const dshHome = process.env.DSH_HOME ?? join(homedir(), ".dsh");
 const target = join(dshHome, "profiles", "node_modules", "dsh-usage-stats");
 const patchPath = join(dshHome, "profiles", "web", "cordis.patch.yml");
 const pluginLine = /^\s+name:\s*dsh-usage-stats\s*$/gm;
-const patchBlock = `# dsh-usage-stats: token usage heatmap + DeepSeek balance
+const patchBlock = `# dsh-usage-stats: token usage + DeepSeek balance
 - insert:
     - id: usage-stats
       name: dsh-usage-stats

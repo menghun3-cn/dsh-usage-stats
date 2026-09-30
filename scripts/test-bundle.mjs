@@ -7,10 +7,12 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const patchDeclaration = manifest.dsh?.bundle?.patch;
 
-assert.equal(patchDeclaration, "./cordis.patch.yml", "package must declare its DSH bundle patch");
+// Official 0.2.0 manifests list patch files as an array (the loader also
+// accepts a bare string, but array is the documented shape).
+assert.deepEqual(patchDeclaration, ["./cordis.patch.yml"], "package must declare its DSH bundle patch");
 assert.ok(manifest.files?.includes("cordis.patch.yml"), "npm package must include the declared bundle patch");
 
-const patchPath = join(root, normalize(patchDeclaration));
+const patchPath = join(root, normalize(patchDeclaration[0]));
 await access(patchPath);
 const patch = await readFile(patchPath, "utf8");
 assert.equal(

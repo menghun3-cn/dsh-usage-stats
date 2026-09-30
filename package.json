@@ -1,7 +1,7 @@
 {
   "name": "dsh-usage-stats",
-  "description": "Token usage heatmap, provider balances, and subscription quotas for the dsh web GUI",
-  "version": "0.2.7",
+  "description": "Token usage stats, provider balances, and subscription quotas for the dsh web GUI",
+  "version": "0.2.8",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/menghun3-cn/dsh-usage-stats.git"
@@ -36,14 +36,14 @@
   },
   "dsh": {
     "bundle": {
-      "patch": "./cordis.patch.yml"
+      "patch": [
+        "./cordis.patch.yml"
+      ]
     },
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-primitives"
+        "@deepseek-ai/dsh-client-locale"
       ]
     }
   },

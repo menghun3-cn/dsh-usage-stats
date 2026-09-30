@@ -31,6 +31,28 @@ function makeResponse() {
 	};
 }
 
+/** A mock 0.2.0 live session: snapshotEvents is the real read seam. */
+function liveSession(id, events) {
+	return {
+		id,
+		inheritedEventCount: 0,
+		snapshotEvents: (from = 0) => events.slice(from),
+		events
+	};
+}
+
+/** A mock 0.2.0 persistence backend over a dense 0-based event log. */
+function persistenceBackend({ list, log }) {
+	return {
+		list: async () => list(),
+		open: async (id, access) => ({
+			inheritedEventCount: 0,
+			read: async (offset) => ({ events: log().slice(offset) }),
+			close: async () => {}
+		})
+	};
+}
+
 function makeContext({ sessions, persistence, routes, settings } = {}) {
 	return {
 		logger: { warn: () => {} },
@@ -45,7 +67,7 @@ async function testRouteFence(root) {
 	const plugin = await freshModule("routes", join(root, "routes"));
 	const routes = new Map();
 	const empty = { list: () => [] };
-	const persistence = { listSnapshots: async () => [], list: async () => [] };
+	const persistence = { list: async () => [] };
 	await plugin.apply(makeContext({ sessions: empty, persistence, routes }), {}, { disableBackgroundRefresh: true });
 	const handler = routes.get(plugin.USAGE_PATH);
 	assert.equal(typeof handler, "function");
@@ -80,9 +102,9 @@ async function testConfigValidation(root) {
 	const routes = new Map();
 	const context = makeContext({
 		sessions: { list: () => [] },
-		persistence: { listSnapshots: async () => [], list: async () => [] },
+		persistence: { list: async () => [] },
 		routes,
-		settings: { get: () => void 0 }
+		settings: { describe: () => [] }
 	});
 	await assert.rejects(
 		() => plugin.apply(context, { monitors: { missing: { adapter: "general" } } }, { disableBackgroundRefresh: true }),
@@ -109,7 +131,7 @@ async function testLegacyZaiSubscriptionId(root) {
 		get: async () => null,
 		refreshAll: async () => []
 	};
-	await plugin.apply(makeContext({ sessions: { list: () => [] }, persistence: { listSnapshots: async () => [], list: async () => [] }, routes }), {}, {
+	await plugin.apply(makeContext({ sessions: { list: () => [] }, persistence: { list: async () => [] }, routes }), {}, {
 		disableBackgroundRefresh: true,
 		accounts
 	});
@@ -128,7 +150,7 @@ async function testBackgroundRefresh(root) {
 	let cleared = false;
 	const ctx = makeContext({
 		sessions: { list: () => [] },
-		persistence: { listSnapshots: async () => [], list: async () => [] }
+		persistence: { list: async () => [] }
 	});
 	const cleanup = plugin.startBackgroundRefresh(ctx, {
 		refreshAll: async () => { refreshes += 1; }
@@ -155,11 +177,14 @@ async function testPersistedToLive(root) {
 	const id = "transition-session";
 	const persisted = usageEvent(100, 11);
 	let live = false;
-	const sessions = { list: () => live ? [{ id, events: [usageEvent(1, 7)] }] : [] };
+	const sessions = { list: () => live ? [liveSession(id, [usageEvent(1, 7)])] : [] };
 	const persistence = {
-		listSnapshots: async () => live ? [] : [{ header: { id }, revision: "r1" }],
-		list: async () => [],
-		readFrom: async () => ({ events: [persisted] })
+		list: async () => live ? [] : [{ header: { id }, revision: "r1" }],
+		open: async () => ({
+			inheritedEventCount: 0,
+			read: async () => ({ events: [persisted] }),
+			close: async () => {}
+		})
 	};
 	const ctx = makeContext({ sessions, persistence });
 	assert.equal((await plugin.collectUsage(ctx)).total.tokens, 11);
@@ -171,32 +196,36 @@ async function testRevisionRewrite(root) {
 	const plugin = await freshModule("rewrite", join(root, "rewrite"));
 	const id = "rewritten-session";
 	let revision = "r1";
+	let log = [usageEvent(0, 11)];
 	let reads = 0;
 	const persistence = {
-		listSnapshots: async () => [{ header: { id }, revision }],
-		list: async () => [],
-		readFrom: async (_id, fromSeq) => {
-			reads += 1;
-			if (revision === "r1") return { events: [usageEvent(100, 11)] };
-			return { events: fromSeq === 0 ? [usageEvent(1, 5)] : [] };
-		}
+		list: async () => [{ header: { id }, revision }],
+		open: async () => ({
+			inheritedEventCount: 0,
+			read: async (offset) => {
+				reads += 1;
+				return { events: log.slice(offset) };
+			},
+			close: async () => {}
+		})
 	};
 	const ctx = makeContext({ sessions: { list: () => [] }, persistence });
 	assert.equal((await plugin.collectUsage(ctx)).total.tokens, 11);
 	await plugin.collectUsage(ctx);
 	assert.equal(reads, 1, "an unchanged opaque revision must skip storage reads");
 	revision = "r2";
+	log = [usageEvent(0, 5)];
 	assert.equal((await plugin.collectUsage(ctx)).total.tokens, 5, "a rewritten log must replace cached usage");
-	assert.equal(reads, 3, "rewrite detection must retry from seq 0");
+	assert.equal(reads, 3, "rewrite detection must retry from the own-events base");
 }
 
 async function testLiveLogShrink(root) {
 	const plugin = await freshModule("shrink", join(root, "shrink"));
 	const id = "shrink-session";
-	const persistence = { listSnapshots: async () => [], list: async () => [] };
+	const persistence = { list: async () => [] };
 	// Pre-restart: the full live log is folded positionally.
 	let events = [usageEvent(1, 5), usageEvent(2, 7), usageEvent(3, 11)];
-	const sessions = { list: () => [{ id, events }] };
+	const sessions = { list: () => [liveSession(id, events)] };
 	const ctx = makeContext({ sessions, persistence });
 	assert.equal((await plugin.collectUsage(ctx)).total.tokens, 23);
 	// DSH restart restores the session as a SHORTER compressed summary while
@@ -224,7 +253,7 @@ async function testZeroUsageRowsFiltered(root) {
 		}
 	};
 	const sessions = { list: () => [{ id: "zero-session", events: [zero, usageEvent(2, 9)] }] };
-	const ctx = makeContext({ sessions, persistence: { listSnapshots: async () => [], list: async () => [] } });
+	const ctx = makeContext({ sessions, persistence: { list: async () => [] } });
 	const usage = await plugin.collectUsage(ctx);
 	assert.equal(usage.total.tokens, 9);
 	const day = usage.days.find((entry) => entry.date === "2026-08-13");

@@ -17,7 +17,7 @@ Provider balances, subscription quotas, and token-usage analytics for the DeepSe
 | | 能力 | 说明 |
 | --- | --- | --- |
 | 💳 | 统一账户卡片 | API 供应商显示余额，Token Plan 显示分窗口额度；面板一次只呈现当前供应商 |
-| 📊 | Token 用量分析 | 今日、本月、累计、缓存命中率、月历热图，以及按日期/供应商/模型下钻 |
+| 📊 | Token 用量分析 | 今日、本月、累计、缓存命中率、最近 7/14 天明细，以及按日期/供应商/模型下钻 |
 | 🔄 | 后台监测 | 服务端启动即刷新，之后每五分钟更新全部已配置账户与本地 Token 聚合 |
 | 🧩 | 可扩展适配器 | 支持 New API、Sub2API、通用余额模板，以及声明式 JSON Pointer 自定义查询 |
 | 🔒 | 本机安全边界 | 五个端点仅接受回环 GET；凭据只在服务端解析并发往校验后的供应商地址 |
@@ -242,7 +242,7 @@ Passion（provider id 为 `passion` 或域名为 `*.passionapi.com`）会自动�
 
 1. 点击侧边栏“用量/余额”。
 2. 用“当前供应商”切换账户卡片；一次只显示一个 provider。
-3. 使用 `‹` / `›` 切换月份，点击热图日期查看当天的 provider/model 明细。
+3. 点击“最近 7 天”或“最近 14 天”中的日期查看当天的 provider/model 明细。
 4. 标题栏刷新会更新 Token、provider 列表，并强制刷新当前账户。
 
 “最近 14 天”按本地日历计算，只显示窗口内存在用量的日期；未来时间戳不会计入。同一模型来自不同 provider 时会分别统计，例如 `deepseek-official · deepseek-chat` 与 `ark · deepseek-chat`。
@@ -350,7 +350,7 @@ node scripts/check-balance.mjs
 
 ## 兼容性与致谢 / Compatibility & credits
 
-当前版本为 `0.2.0`。插件依赖 Harness 客户端模块加载器、Cordis 服务与 session persistence；Harness 预发布接口变化时可能需要同步适配。
+当前版本为 `0.2.8`，已适配 Harness 0.2.0-rc.2 的客户端模块加载器（`dsh.client.inject`）、Cordis 服务（`sessions.snapshotEvents` / `sessionPersistence` 句柄读取 / `settings.describe()`）与 bundle patch 元数据；Harness 预发布接口变化时可能需要同步适配。
 
 - [Javis603/token-monitor](https://github.com/Javis603/token-monitor)：参考多 provider 配额归一化与 Z.ai 限额解析。
 - [xiaoqi20/dsh-opencode-go-usage](https://github.com/xiaoqi20/dsh-opencode-go-usage)：参考 DSH 凭据接入、OpenCode `auth.json` 回退与 Bearer usage endpoint。
