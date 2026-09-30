@@ -26,6 +26,51 @@ Provider balances, subscription quotas, and token-usage analytics for the DeepSe
 
 ## 快速安装 / Quick start
 
+### 桌面版 GUI（desktop profile，DSH 0.2.0-rc.2）
+
+桌面版（Electron 应用）实际加载 `~/.dsh/profiles/desktop`，**不是** `web` profile——安装到 `web` 不会出现在桌面 GUI 里。使用桌面版自带的 `dsh plugin` 通道从 GitHub 仓库安装：
+
+```powershell
+# 1) 先完全退出 DeepSeek Harness 桌面应用（GUI 运行时会锁住 profile 的
+#    package.json，导致 pnpm 写清单失败，报 EPERM）。
+# 2) 把下面的 <dsh> 替换为安装目录，例如
+#    D:\Program Files\DeepSeek Harness\resources\app.asar\dsh
+$env:ELECTRON_RUN_AS_NODE = '1'
+# pnpm 会把 github: 短协议规范化为 ssh（没有 SSH key 时被 GitHub 拒绝），
+# 注入 insteadOf 环境配置强制走 https（仅本次进程生效，不改全局 gitconfig）：
+$env:GIT_CONFIG_COUNT = '2'
+$env:GIT_CONFIG_KEY_0 = 'url.https://github.com/.insteadOf'
+$env:GIT_CONFIG_VALUE_0 = 'ssh://git@github.com/'
+$env:GIT_CONFIG_KEY_1 = 'url.https://github.com/.insteadOf'
+$env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
+& "C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe" --expose-internals `
+  "<dsh>\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js" `
+  plugin --profile desktop add "git+https://github.com/menghun3-cn/dsh-usage-stats.git"
+```
+
+`dsh plugin add` 只安装仓库依赖，不会自动写补丁。手动在 `~/.dsh/profiles/desktop/cordis.patch.yml` **末尾**追加挂载行：
+
+```yaml
+# dsh-usage-stats（GitHub 仓库安装）
+- insert:
+    - id: usage-stats
+      name: dsh-usage-stats
+```
+
+重新打开桌面应用，侧边栏底部会出现“用量/余额”（Usage/Balance）入口。
+
+升级（同样先退出桌面应用再执行）：
+
+```powershell
+& "C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe" --expose-internals `
+  "<dsh>\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js" `
+  plugin --profile desktop update dsh-usage-stats
+```
+
+> `github:` 短协议与 `git+https:` 指向同一仓库：短协议会被 pnpm 规范化为 SSH（无 SSH key 时报 `Permission denied (publickey)`），推荐显式 `git+https://github.com/menghun3-cn/dsh-usage-stats.git`。GitHub 安装没有 npm 版本语义，跟随仓库 HEAD；要固定版本可给仓库打 tag（如 `v0.2.8`）后使用 `...git#v0.2.8` 形式的 spec。与 `npx` 兼容安装器二选一，不要同时启用两种安装路径。
+
+### Web profile（浏览器版，0.1.x CLI 或 `dsh web`）
+
 需要 DeepSeek Harness `web` profile（`@deepseek-ai/dsh >= 0.1.0-rc.6`）。
 
 ```bash
