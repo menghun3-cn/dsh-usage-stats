@@ -1,7 +1,7 @@
 // Smoke-test the hand-written client bundle outside the browser:
 // 1. feed it to a fake __ModuleLoader__ (captures the factory)
 // 2. run the factory with a fake require (real react, stubbed primitives)
-// 3. render <UsageStatsPanel wide t> with react-dom/server
+// 3. render <UsageStatsPanel t> with react-dom/server
 // 4. run apply(ctx) against a stub client context
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -28,10 +28,11 @@ globalThis.document = { querySelector: () => null, createElement: () => ({ datas
 const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "lib", "client.js"), "utf8");
 if (!source.includes("/api/usage-stats/account")) throw new Error("client must use the unified account endpoint");
 if (source.includes('fetchJson("/api/usage-stats/subscriptions")')) throw new Error("client must not bulk-fetch every subscription provider");
-if (!source.includes('host.style.flexDirection = "column"')) throw new Error("client must stack the host footer-actions container vertically (#21)");
+if (!source.includes('ctx.slots.inject("shell.overlay"')) throw new Error("client must register on the 0.2.0 shell.overlay layout slot");
+if (source.includes('require("react-dom")')) throw new Error("client must not depend on react-dom (the shell bundle does not seed it)");
 if (!source.includes('document.addEventListener("pointerdown"')) throw new Error("open panel must listen for outside pointerdown");
 if (!source.includes('event.key === "Escape"')) throw new Error("open panel must dismiss on Escape");
-if (!source.includes("ref: panelRef")) throw new Error("portaled panel must expose a ref for outside-click detection");
+if (!source.includes("ref: panelRef")) throw new Error("open panel must expose a ref for outside-click detection");
 // Badge layout regression: the collapsed badge must keep the 「用量/余额」label,
 // render the account value as a separate middle element, and keep today's token
 // count on the right — the label must never be replaced by the amount.
@@ -47,9 +48,6 @@ if (captured.id !== "dsh-usage-stats") throw new Error(`unexpected id ${captured
 const exports_ = captured.factory((spec) => {
 	if (spec === "react") return react;
 	if (spec === "react/jsx-runtime") return jsxRuntime;
-	// react-dom/server cannot render portals; the panel portals to document.body
-	// only for theme-token scoping, so the smoke harness inlines it instead.
-	if (spec === "react-dom") return { createPortal: (node) => node };
 	if (spec === "@deepseek-ai/dsh-client-ui-primitives") return primitives;
 	throw new Error(`unexpected require: ${spec}`);
 });
@@ -84,7 +82,7 @@ const ctx = {
 exports_.apply(ctx);
 if (registrations.length !== 1) throw new Error("expected one slot injection");
 const [slot, registerFn] = registrations[0];
-if (slot !== "sidebar.footer.action") throw new Error(`unexpected slot ${slot}`);
+if (slot !== "shell.overlay") throw new Error(`unexpected slot ${slot}`);
 const disposer = registerFn();
 if (typeof disposer !== "function") throw new Error("slot registration must return a disposer");
 console.log("apply ok, slot:", slot);

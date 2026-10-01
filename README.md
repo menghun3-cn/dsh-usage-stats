@@ -57,7 +57,7 @@ $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
       name: dsh-usage-stats
 ```
 
-重新打开桌面应用，侧边栏底部会出现“用量/余额”（Usage/Balance）入口。
+重新打开桌面应用，屏幕左下角会出现浮动的“用量/余额”（Usage/Balance）悬浮按钮，点击展开面板。
 
 升级（同样先退出桌面应用再执行）：
 
@@ -77,7 +77,9 @@ $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
 dsh plugin --profile web add "github:menghun3-cn/dsh-usage-stats"
 ```
 
-然后重启已经运行的 `dsh web`，并在浏览器中硬刷新。侧边栏底部会出现“用量/余额”（Usage/Balance）入口。
+然后重启已经运行的 `dsh web`，并在浏览器中硬刷新。屏幕左下角会出现“用量/余额”（Usage/Balance）悬浮按钮。
+
+> 0.2.9 起客户端挂载到 0.2.0 的 `shell.overlay` 布局槽位；0.1.x 的 `web` profile 缺少该槽位，只会提供数据端点、不再渲染 UI。桌面版（0.2.0-rc.2+）不受影响。
 
 ### 插件市场 GUI 安装（DSH Community Market，Path A 标准来源）
 
@@ -285,7 +287,7 @@ Passion（provider id 为 `passion` 或域名为 `*.passionapi.com`）会自动�
 
 ## 使用 / Usage
 
-1. 点击侧边栏“用量/余额”。
+1. 点击屏幕左下角的“用量/余额”悬浮按钮。
 2. 用“当前供应商”切换账户卡片；一次只显示一个 provider。
 3. 点击“最近 7 天”或“最近 14 天”中的日期查看当天的 provider/model 明细。
 4. 标题栏刷新会更新 Token、provider 列表，并强制刷新当前账户。
@@ -395,7 +397,7 @@ node scripts/check-balance.mjs
 
 ## 兼容性与致谢 / Compatibility & credits
 
-当前版本为 `0.2.8`，已适配 Harness 0.2.0-rc.2 的客户端模块加载器（`dsh.client.inject`）、Cordis 服务（`sessions.snapshotEvents` / `sessionPersistence` 句柄读取 / `settings.describe()`）与 bundle patch 元数据；Harness 预发布接口变化时可能需要同步适配。
+当前版本为 `0.2.9`，已适配 Harness 0.2.0-rc.2 的插件规范：服务端以 Cordis 对象插件面挂载（`module.default = { name, inject, apply }`，不引入第二份 cordis 副本），路由经 `webServer.register` 注册；客户端以 `__ModuleLoader__` factory 格式发布 `exports["./client"]` 包，注册到 0.2.0 的 `shell.overlay` 布局槽位（无 `react-dom` 依赖，直接消费平台 `react` 种子与 `dsh-client-ui-primitives`），数据走 `sessions.snapshotEvents` / `sessionPersistence` 句柄读取 / `settings.describe()`。Harness 预发布接口变化时可能需要同步适配。
 
 - [Javis603/token-monitor](https://github.com/Javis603/token-monitor)：参考多 provider 配额归一化与 Z.ai 限额解析。
 - [xiaoqi20/dsh-opencode-go-usage](https://github.com/xiaoqi20/dsh-opencode-go-usage)：参考 DSH 凭据接入、OpenCode `auth.json` 回退与 Bearer usage endpoint。
