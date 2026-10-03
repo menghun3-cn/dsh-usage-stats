@@ -43,6 +43,11 @@ if (!source.includes("function createShareCanvas")) throw new Error("the share i
 if (!source.includes("S.shareBackdrop")) throw new Error("the share dialog must be part of the panel layer");
 if (!source.includes("download: `dsh-usage-")) throw new Error("the share download must carry the dsh-usage file name");
 if (!source.includes('translate("share.download")')) throw new Error("the download action must be localized");
+if (!source.includes("const copyShareToClipboard = async")) throw new Error("the WeChat share action must exist");
+if (!source.includes("new ClipboardItem")) throw new Error("the WeChat share must write to the system clipboard");
+if (!source.includes('translate(shareCopied ? "share.copied" : "share.wechat")')) throw new Error("the WeChat button must show copy feedback");
+const primaryCount = source.split("S.sharePrimary").length - 1;
+if (primaryCount !== 1) throw new Error(`S.sharePrimary must appear exactly once (the WeChat button), found ${primaryCount}`);
 if (!source.includes('badgeCount !== null && react_jsx_runtime.jsx("span", { className: S.badgeCount')) throw new Error("badge must keep the token count on the right");
 // Last-14-days view is gone for good; the panel shows three summary cards
 // (today / month / all-time built from the same stats), the last-7-days bar
