@@ -1,7 +1,7 @@
 {
   "name": "dsh-usage-stats",
   "description": "Token usage stats, provider balances, and subscription quotas for the dsh web GUI",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/menghun3-cn/dsh-usage-stats.git"

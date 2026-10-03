@@ -36,6 +36,12 @@ if (!source.includes("ref: panelRef")) throw new Error("open panel must expose a
 if (!source.includes("inset:auto auto 60px 12px")) throw new Error("overlay layer must clear the bottom-left user menu");
 if (!source.includes('translate("panel.badge")')) throw new Error("badge must keep the label text");
 if (!source.includes("badgeCount !== null && react_jsx_runtime.jsx(\"span\", { className: S.badgeCount")) throw new Error("badge must keep the today token count on the right");
+// Last-14-days view is gone for good; the panel keeps two horizontal views:
+// last 7 days (daily) and last 12 months (monthly), plus today/month/total.
+if (source.includes('"usage.recent"')) throw new Error("last-14-days view must be fully removed");
+if (!source.includes('translate("usage.week")')) throw new Error("last-7-days view must stay");
+if (!source.includes('translate("usage.months")')) throw new Error("last-12-months view must exist");
+if (!source.includes("function MonthBars")) throw new Error("MonthBars component missing");
 new Function(source)(); // executes the window.__ModuleLoader__.load call
 
 if (captured === null) throw new Error("loader did not capture the bundle");
@@ -162,5 +168,22 @@ if (!weekMarkup.includes("1.23亿")) throw new Error("week chart tooltips must u
 if (!weekMarkup.includes("usg_weekBarFill")) throw new Error("week chart bars missing their fill");
 if (!weekMarkup.includes("usg_weekBarLabel")) throw new Error("week chart bars missing their weekday label");
 console.log("week bar chart render ok, markup length:", weekMarkup.length);
+
+// Render the last-12-months bar chart: twelve selectable bars, two-decimal
+// tooltips, 2-digit month labels, and the current month highlighted.
+const { MonthBars } = exports_;
+const monthNow = new Date();
+const months = [];
+for (let i = 11; i >= 0; i -= 1) {
+	const d = new Date(monthNow.getFullYear(), monthNow.getMonth() - i, 1);
+	const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+	months.push({ month: mk, tokens: i === 0 ? 0 : 123456789 - i * 1000 });
+}
+const monthsMarkup = renderToStaticMarkup(react.createElement(MonthBars, { months, translate: (key) => key, onSelect: () => {} }));
+if ((monthsMarkup.match(/usg_weekBar"|usg_weekBar /g) ?? []).length !== 12) throw new Error("month chart must render exactly 12 bars");
+if (!monthsMarkup.includes("1.23亿")) throw new Error("month chart tooltips must use two-decimal chinese units");
+if (!monthsMarkup.includes("usg_weekBarToday")) throw new Error("current month must be highlighted");
+if ((monthsMarkup.match(/usg_weekBarLabel/g) ?? []).length !== 12) throw new Error("month chart must label every bar");
+console.log("month bar chart render ok, markup length:", monthsMarkup.length);
 
 console.log("SMOKE TEST PASSED");
