@@ -35,7 +35,10 @@ if (!source.includes("ref: panelRef")) throw new Error("open panel must expose a
 // label plus today's token count (no provider amount anymore).
 if (!source.includes("inset:auto auto 60px 12px")) throw new Error("overlay layer must clear the bottom-left user menu");
 if (!source.includes('translate("panel.badge")')) throw new Error("badge must keep the label text");
-if (!source.includes("badgeCount !== null && react_jsx_runtime.jsx(\"span\", { className: S.badgeCount")) throw new Error("badge must keep the today token count on the right");
+if (!source.includes('translate("panel.badgeMode")')) throw new Error("badge mode switcher must exist and be localized");
+if (!source.includes("dsh-usage-stats.badgeMode")) throw new Error("badge mode must persist across restarts");
+if (!source.includes("window.setInterval(loadUsage, 60000)")) throw new Error("periodic refresh must run regardless of panel state");
+if (!source.includes('badgeCount !== null && react_jsx_runtime.jsx("span", { className: S.badgeCount')) throw new Error("badge must keep the token count on the right");
 // Last-14-days view is gone for good; the panel shows three summary cards
 // (today / month / all-time built from the same stats), the last-7-days bar
 // chart with per-bar VALUE LABELS, and the last-12-months LINE chart with
@@ -154,6 +157,15 @@ if (fmtZh(0) !== "0.00") throw new Error("zero must render as 0.00");
 if (fmt(1234.5) !== "1,234.50") throw new Error(`unexpected fmt: ${fmt(1234.5)}`);
 if (fmtHit(61.2) !== "61.20%") throw new Error(`unexpected fmtHit: ${fmtHit(61.2)}`);
 if (fmtHit(null) !== "—") throw new Error("missing hit rate must render em dash");
+const { badgeValueOf } = exports_;
+const demoStats = { dayTokens: 3, monthTokens: 30, total: 300 };
+if (badgeValueOf("today", demoStats) !== 3) throw new Error("badgeValueOf(today) must pick the day figure");
+if (badgeValueOf("month", demoStats) !== 30) throw new Error("badgeValueOf(month) must pick the month figure");
+if (badgeValueOf("total", demoStats) !== 300) throw new Error("badgeValueOf(total) must pick the all-time figure");
+if (badgeValueOf("today", null) !== null) throw new Error("badgeValueOf(null stats) must stay null");
+// The header badge-mode switcher markup must exist in the panel (it only
+// renders when the panel is open, so this is a source-level check).
+if (!source.includes('jsx("button", {') || !source.includes('className: `${S.badgeModeButton}${badgeMode === mode')) throw new Error("header must offer the three badge modes");
 console.log("two-decimal formatting ok");
 
 // Render the last-7-days bar chart: every bar must be a selectable button, the

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { dayKey } from "../lib/usage.js";
 
 function usageEvent(seq, inputTokens) {
 	return {
@@ -261,6 +262,42 @@ async function testZeroUsageRowsFiltered(root) {
 	assert.equal(day.models[0].model, "unknown/deepseek-chat");
 }
 
+async function testRetentionTrim(root) {
+	const plugin = await freshModule("retention", join(root, "retention"));
+	const id = "retention-session";
+	// 401 distinct calendar days, 1 token each — the oldest day must be dropped
+	// from both the aggregated response and the stored session state.
+	const events = [];
+	const cursor = new Date(2026, 7, 13, 12, 0, 0, 0);
+	for (let i = 0; i < 401; i += 1) {
+		events.push({
+			seq: i + 1,
+			time: cursor.getTime(),
+			type: "assistant/message",
+			data: {
+				turn: `turn-${i + 1}`,
+				step: 0,
+				usage: { inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+				message: { source: { model: "deepseek-chat" } }
+			}
+		});
+		cursor.setDate(cursor.getDate() - 1);
+	}
+	const sessions = { list: () => [liveSession(id, events)] };
+	const persistence = { list: async () => [] };
+	const ctx = makeContext({ sessions, persistence });
+	const usage = await plugin.collectUsage(ctx);
+	assert.equal(usage.days.length, 400, "the aggregated response must be trimmed to 400 days");
+	assert.equal(usage.total.tokens, 400, "the oldest day's tokens must be dropped");
+	const newest = new Date(2026, 7, 13, 12, 0, 0, 0);
+	newest.setDate(newest.getDate() - 399);
+	const minDate = usage.days.reduce((min, d) => min === null || d.date < min ? d.date : min, null);
+	assert.equal(minDate, dayKey(newest.getTime()), `the 400 newest days must be kept (min=${minDate}, expected=${dayKey(newest.getTime())})`);
+	const again = await plugin.collectUsage(ctx);
+	assert.equal(again.days.length, 400, "retention must hold across runs");
+	assert.equal(again.total.tokens, 400);
+}
+
 const root = await mkdtemp(join(tmpdir(), "dsh-usage-stats-"));
 try {
 	await testRouteFence(root);
@@ -271,6 +308,7 @@ try {
 	await testRevisionRewrite(root);
 	await testLiveLogShrink(root);
 	await testZeroUsageRowsFiltered(root);
+	await testRetentionTrim(root);
 	console.log("SERVER REGRESSION TESTS PASSED");
 } finally {
 	delete process.env.DSH_HOME;

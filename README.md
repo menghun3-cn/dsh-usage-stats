@@ -4,25 +4,38 @@
 [![CI](https://github.com/menghun3-cn/dsh-usage-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/menghun3-cn/dsh-usage-stats/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-2da44e)](LICENSE)
 
-为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 网页端提供多供应商账户监测与 Token 用量分析。
+为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 网页端提供 **Token 用量统计面板**。
 
-Provider balances, subscription quotas, and token-usage analytics for the DeepSeek Harness Web GUI (`dsh web`).
+Token usage analytics for the DeepSeek Harness Web GUI (`dsh web`).
 
-![dsh-usage-stats v0.2.0 interface preview](docs/images/usage-panel.svg)
+![dsh-usage-stats v0.2.17 interface preview](docs/images/usage-panel-v2.svg)
 
-> 展示图使用脱敏演示数据；插件不会把 API Key、Cookie、管理 PAT 或上游原始响应发送到浏览器。
+> 展示图使用脱敏演示数据（`docs/images/usage-panel.svg` 为 0.2.0 旧界面存档，仅作历史对照）。
 
 ## 一眼看懂 / At a glance
 
 | | 能力 | 说明 |
 | --- | --- | --- |
-| 💳 | 统一账户卡片 | API 供应商显示余额，Token Plan 显示分窗口额度；面板一次只呈现当前供应商 |
-| 📊 | Token 用量分析 | 今日、本月、累计、缓存命中率、最近 7/14 天明细，以及按日期/供应商/模型下钻 |
-| 🔄 | 后台监测 | 服务端启动即刷新，之后每五分钟更新全部已配置账户与本地 Token 聚合 |
-| 🧩 | 可扩展适配器 | 支持 New API、Sub2API、通用余额模板，以及声明式 JSON Pointer 自定义查询 |
-| 🔒 | 本机安全边界 | 五个端点仅接受回环 GET；凭据只在服务端解析并发往校验后的供应商地址 |
+| 🏷️ | 左下角悬浮徽标 | 显示「用量 · 今日」tokens（两位小数），可切换为 今日 / 本月 / 累计，选择会持久化 |
+| 📊 | 三个汇总卡 | 今日、本月、累计 tokens（舍入到两位小数，万/亿自动换算） |
+| 📈 | 最近 7 天柱状图 | 每根柱子顶部直接标注数值；点击柱子下钻当天 明细（输入/输出/缓存命中/缓存读写/模型拆分） |
+| 📉 | 最近 12 个月折线图 | 每个线点上方标注数值、下方标注月份；点击线点下钻该月 每日用量 |
+| 🔄 | 自动刷新 | 插件挂载后每 60 秒刷新一次，面板开合都一样；跨天数字自动翻新为今日 |
+| 🗄️ | 有界历史 | 服务端只保留最近 400 天（12 个月 + 余量），缓存文件不会无限膨胀 |
 
-界面支持中文和英文。浏览器只请求当前选择的 provider；后台刷新与面板是否打开无关。手动刷新会更新用量、供应商列表，并强制刷新当前账户，不会批量强制请求其他供应商。
+- 数据来自 `assistant/chunk` / `assistant/message` 中 provider 上报的 `usage`，不是本地估算。
+- 统计完全在本机进行，凭据、提示词、回复与文件路径从不进入面板或缓存。
+- 面板支持中文和英文，跟随 Harness 界面语言。
+
+## 界面结构 / Panel
+
+点击屏幕左下角的「用量」悬浮按钮展开面板（再次点击空白处或按 `Esc` 收起）：
+
+1. **标题栏**：左侧「Token 用量」；右侧 今日/本月/累计 切换器（决定徽标显示哪个数字）、刷新、关闭。
+2. **汇总卡**：「今日」「本月」「累计」三个汇总，格式始终为两位小数（`9999.00` / `1.23万` / `1.23亿`）。
+3. **最近 7 天柱状图**：按本地日历取最近 7 天（含今天，零用量天保留占位），柱顶直接标注数值；点击任一柱子查看当天详情。
+4. **最近 12 个月折线图**：按本地日历聚合最近 12 个月（含当前月），线点上方标注数值、下方标注 MM 月份；当前月带高亮圆环；点击任一线点下钻该月每日用量。
+5. 详情视图均可返回主面板；标题栏「更新于 HH:MM」显示最近一次成功刷新的时刻。
 
 ## 快速安装 / Quick start
 
@@ -57,7 +70,7 @@ $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
       name: dsh-usage-stats
 ```
 
-重新打开桌面应用，屏幕左下角会出现浮动的“用量/余额”（Usage/Balance）悬浮按钮，点击展开面板。
+重新打开桌面应用，屏幕左下角会出现浮动的「用量」悬浮按钮，点击展开面板。
 
 升级（同样先退出桌面应用再执行）：
 
@@ -67,7 +80,7 @@ $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
   plugin --profile desktop update dsh-usage-stats
 ```
 
-> `github:` 短协议与 `git+https:` 指向同一仓库：短协议会被 pnpm 规范化为 SSH（无 SSH key 时报 `Permission denied (publickey)`），推荐显式 `git+https://github.com/menghun3-cn/dsh-usage-stats.git`。GitHub 安装没有 npm 版本语义，跟随仓库 HEAD；要固定版本可给仓库打 tag（如 `v0.2.8`）后使用 `...git#v0.2.8` 形式的 spec。与 `npx` 兼容安装器二选一，不要同时启用两种安装路径。
+> `github:` 短协议与 `git+https:` 指向同一仓库：短协议会被 pnpm 规范化为 SSH（无 SSH key 时报 `Permission denied (publickey)`），推荐显式 `git+https://github.com/menghun3-cn/dsh-usage-stats.git`。GitHub 安装没有 npm 版本语义，跟随仓库 HEAD；要固定版本可给仓库打 tag（如 `v0.2.16`）后使用 `...git#v0.2.16` 形式的 spec。与 `npx` 兼容安装器二选一，不要同时启用两种安装路径。
 
 ### Web profile（浏览器版，0.1.x CLI 或 `dsh web`）
 
@@ -77,7 +90,7 @@ $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
 dsh plugin --profile web add "github:menghun3-cn/dsh-usage-stats"
 ```
 
-然后重启已经运行的 `dsh web`，并在浏览器中硬刷新。屏幕左下角会出现“用量/余额”（Usage/Balance）悬浮按钮。
+然后重启已经运行的 `dsh web`，并在浏览器中硬刷新。
 
 > 0.2.9 起客户端挂载到 0.2.0 的 `shell.overlay` 布局槽位；0.1.x 的 `web` profile 缺少该槽位，只会提供数据端点、不再渲染 UI。桌面版（0.2.0-rc.2+）不受影响。
 
@@ -132,167 +145,19 @@ npx --yes github:menghun3-cn/dsh-usage-stats --no-enable
 
 </details>
 
-## 支持的账户类型 / Providers
-
-插件自动发现官方 DeepSeek 路由和 `llm-pi-ai` 中的 provider profile。只有存在公开账户接口或显式 monitor 的供应商才会查询远端账户；Token 用量统计不需要额外凭据。
-
-| Provider / adapter | 模式 | 默认凭据 | 上游接口 |
-| --- | --- | --- | --- |
-| DeepSeek | 余额 | provider `apiKeyEnv` | `/user/balance` |
-| OpenRouter | 余额 | `OPENROUTER_MANAGEMENT_KEY` | `/api/v1/credits` |
-| Moonshot / Kimi API | 余额 | provider `apiKeyEnv` | `/v1/users/me/balance` |
-| OpenCode Go | 订阅 | `OPENCODE_GO_API_KEY` 或本地 `auth.json` | `/zen/go/v1/usage` |
-| Z.ai / 智谱 | 订阅 | `ZAI_API_KEY` | Coding Plan quota/subscription |
-| Kimi For Coding | 订阅 | `KIMI_API_KEY` | `/coding/v1/usages` |
-| MiniMax Coding Plan | 订阅 | `MINIMAX_API_KEY` | `/v1/token_plan/remains` |
-| New API | 余额 | provider 推理 Token | `/api/usage/token/` |
-| Sub2API / Passion | 自动判别 | provider `apiKeyEnv` | `/v1/usage` |
-| Sub2API 面板（真实） | 余额 | provider 推理 Token | `/user/balance`（复用 apiKey） |
-| General / Declarative | 余额或订阅 | 配置中的 credential ref | 受限 GET + JSON |
-
-没有公开账户接口的供应商仍会正常统计 Token；账户卡片会明确显示“不支持”，不会猜测余额。
-
-## 凭据与供应商配置 / Configuration
-
-凭据由 Harness 从 `~/.dsh/.credentials.yaml` 解析。安装器不会读取、创建或修改该文件。不要把真实 Key、Cookie 或管理令牌提交到 Git、公开 issue，或粘贴给编码 Agent。
-
-### 余额型供应商
-
-DeepSeek、Moonshot 等默认复用对应 provider profile 的 `apiKeyEnv`。例如：
-
-```yaml
-# ~/.dsh/.credentials.yaml
-DEEPSEEK_API_KEY: sk-your-key-here
-```
-
-OpenRouter 是明确的例外：官方账户 credits 接口要求 **Management Key**，不能复用普通推理 `OPENROUTER_API_KEY`。插件默认读取独立引用；未配置时显示“未配置”，不会拿推理 Key 试探：
-
-```yaml
-# ~/.dsh/.credentials.yaml
-OPENROUTER_MANAGEMENT_KEY: sk-or-v1-your-management-key
-```
-
-插件按 `total_credits - total_usage` 显示 OpenRouter 余额，并同时展示累计已用和总 credits。普通 Key 的 `/api/v1/key` 只描述单个 Key 的 spending limit，不会被当作账户余额。自定义引用可在 `monitors.openrouter` 中设置 `adapter: openrouter-balance` 与 `credentialRef`。
-
-### Token Plan 供应商
-
-```yaml
-# ~/.dsh/.credentials.yaml
-OPENCODE_GO_API_KEY: sk-opencode-your-key
-ZAI_API_KEY: your-zai-key
-# 中国区 Z.ai 用户可选；默认 global
-ZAI_API_REGION: bigmodel-cn
-KIMI_API_KEY: your-kimi-key
-MINIMAX_API_KEY: your-minimax-key
-# 中国区 MiniMax 用户可选；默认 global
-MINIMAX_API_REGION: cn
-```
-
-OpenCode Go 依次尝试 Harness credential、`~/.local/share/opencode/auth.json`，最后才使用显式 `OPENCODE_GO_AUTH_COOKIE + OPENCODE_GO_WORKSPACE_ID` 兼容回退。Bearer usage endpoint 目前不是公开 API，可能随上游变化；Cookie 等同登录凭据，不应进入日志或 issue。
-
-Z.ai 全球区使用 `api.z.ai`，中国区使用 `open.bigmodel.cn`。MiniMax 优先使用官方 `www.minimax.io` / `www.minimaxi.com` Token Plan 地址，并解析 5 小时与周窗口的剩余比例和重置时间。
-
-### New API、Sub2API 与自定义 monitor
-
-在现有 `name: dsh-usage-stats` Cordis entry 下合并 `config`，不要追加第二个插件 entry。monitor 键必须是 Harness 中真实存在的 provider id；未知 provider、adapter 或非法映射会在路由和 timer 注册前阻止插件启动。例外：monitor 同时显式提供 `usageBaseURL` 与 `credentialRef` 时视为自包含，会在 provider 注册可见前临时物化为 provider（适用于 Harness 设置页里后加载的 provider），此时不要求该 provider 已出现在注册表中。
-
-<details>
-<summary><strong>展开 monitor 配置示例</strong></summary>
-
-New API 默认用 provider 推理 Token 查询 `/api/usage/token/`，并从 `/api/status` 读取实例自己的 `quota_per_unit`：
-
-```yaml
-# ~/.dsh/profiles/web/cordis.patch.yml
-- insert:
-    - id: usage-stats
-      name: dsh-usage-stats
-      config:
-        monitors:
-          relay-a:                 # Harness provider id
-            adapter: new-api
-            # 仅旧实例的 /api/user/self 回退需要：
-            fallbackCredentialRef: RELAY_A_MANAGEMENT_PAT
-```
-
-只有 `/api/usage/token/` 返回 404/405 且配置了独立管理 PAT 才会 fallback；不会把推理 Token 当管理凭据。旧实例需要 User ID 时可增加 `fallbackUserIdRef`。
-
-CC Switch 风格通用余额：
-
-```yaml
-        monitors:
-          relay-a:
-            adapter: general
-            warning:
-              warnBelow: 5
-              criticalBelow: 1
-```
-
-Sub2API 风格 `/v1/usage`：
-
-```yaml
-        monitors:
-          relay-a:
-            adapter: sub2api
-            warning:
-              warnBelow: 5
-              criticalBelow: 1
-```
-
-> 注意：`sub2api` 适配器对应一部分 Sub2API 部署暴露的 `/v1/usage` 协议。真实 Sub2API 面板（Wei-Shaw/sub2api 系）不提供该公开接口，改用 `sub2api-auth` 适配器读取面板自己的余额（见下）。
-
-**真实 Sub2API 面板余额（`sub2api-auth`）**：Sub2API 面板把上游订阅统一暴露成 API，但上游供应商通常没有公开余额接口。`sub2api-auth` 用 provider 自己的推理 API Key 查询面板余额，同 CC Switch 的 General 模板：`GET {baseUrl}/user/balance`，`Authorization: Bearer {apiKey}`，读取 `body.balance`。**无需单独的面板凭据** —— provider 在 DSH 模型页里配置的那个 API Key 会被直接复用：
-
-```yaml
-        monitors:
-          relay-b:
-            adapter: sub2api-auth
-```
-
-（可选）若 `/user/balance` 返回 UTF-8 金额对应 `body.unit`，会显示该币种；否则默认 USD。今日已用额度尽量从 `GET /api/v1/usage/stats?period=today` 的 `total_actual_cost` 补充，查询不到也不影响余额展示。
-
-**自动识别真实 Sub2API 面板（`sub2api-auth`）**：只要把 Sub2API 面板作为普通 provider 配置进 DSH（带入它的 API Key），插件会探测该 provider 的 `GET /api/v1/settings/public`。若指纹命中真实 Sub2API 面板（返回 `data.affiliate_enabled: boolean`），就自动按 `sub2api-auth` 用该 provider 的 API Key 读取余额，**无需为该 provider 单独写 `adapter`，也无需额外凭据**。显式 `adapter` 始终优先于自动识别；没有配置 API Key 的 provider 绝不会被探测。
-
-```yaml
-# 只要这些（不需要单独的 SUB2API_* 凭据）
-# DSH 模型页里为 Sub2API 面板配置 provider，baseURL 指向面板，API Key 填可用的密钥
-```
-
-Passion（provider id 为 `passion` 或域名为 `*.passionapi.com`）会自动识别。钱包响应显示余额；`quota_limited` 或包含 `subscription` 的响应自动切换为额度窗口。
-
-声明式自定义查询只支持受限 GET + JSON Pointer，不执行 JavaScript：
-
-```yaml
-        monitors:
-          private-model:
-            adapter: declarative
-            mode: balance
-            request:
-              path: /account/balance
-              auth:
-                type: bearer
-                credentialRef: PRIVATE_MODEL_API_KEY
-            extract:
-              root: /data
-              remaining: /available_balance
-              used: /used_balance
-              total: /total_balance
-              currency: /currency
-```
-
-</details>
-
-支持的 adapter：`deepseek-balance`、`openrouter-balance`、`moonshot-balance`、`zai-balance`、`new-api`、`sub2api`、`sub2api-auth`、`general`、`opencode-go`、`zai-token-plan`、`kimi-token-plan`、`minimax-token-plan`、`declarative`。
-
-`warning.warnBelow` 与 `warning.criticalBelow` 是余额绝对值阈值。具有总额度的余额和 Token Plan 会自动产生 `normal / warning / critical` 剩余比例状态（默认 30% / 10%）。
-
 ## 使用 / Usage
 
-1. 点击屏幕左下角的“用量/余额”悬浮按钮。
-2. 用“当前供应商”切换账户卡片；一次只显示一个 provider。
-3. 点击“最近 7 天”或“最近 14 天”中的日期查看当天的 provider/model 明细。
-4. 标题栏刷新会更新 Token、provider 列表，并强制刷新当前账户。
+1. 点击屏幕左下角的「用量」悬浮按钮展开面板；再点空白处或按 `Esc` 收起。
+2. 标题栏的 今日/本月/累计 切换器决定悬浮徽标显示哪个数字（持久化，重启不丢）。
+3. 点击「最近 7 天」柱状图上的任意柱子，查看当天的输入/输出/缓存读写与缓存命中率、模型拆分。
+4. 点击「最近 12 个月」折线图上的任意线点，查看该月每日用量；返回可逐日下钻。
+5. 「更新于 HH:MM」表示最近一次成功刷新；面板开着的时候每 60 秒自动更新，关着的时候静默更新徽标数字。
 
-“最近 14 天”按本地日历计算，只显示窗口内存在用量的日期；未来时间戳不会计入。同一模型来自不同 provider 时会分别统计，例如 `deepseek-official · deepseek-chat` 与 `ark · deepseek-chat`。
+## 数据保留 / Retention
+
+- 服务端按「日」聚合持久化到 `~/.dsh/storages/usage-stats-cache.json`，只保留**最近 400 天**（12 个月 + 余量），每次聚合时自动裁剪最旧的天，缓存文件大小有界。
+- 统计从会话事件进行**增量折叠**，不逐条重放历史；`0.1.x` 的旧缓存在不兼容时会被识别并重建。
+- 顺带说明：`0.2.5` 之前版本的 providers / balance / token-plan 账户卡片功能已移除，插件现在是纯 token 面板；对应的 `/api/usage-stats/providers|account|balance|subscriptions` 路由保留为兼容空壳（`not-configured`）。
 
 ## Agent 友好安装 / Agent-friendly installation
 
@@ -317,20 +182,6 @@ Procedure:
 5. For npx, require a verified package and exactly one Cordis entry, then run again with --check.
 6. Report the installation path and resolved profile paths.
 7. If dsh web is running, report that a restart is needed and stop.
-
-Optional account setup (never handle secret values yourself):
-- OpenRouter account balance requires OPENROUTER_MANAGEMENT_KEY, not the inference key.
-- OpenCode Go may reuse local auth.json or use OPENCODE_GO_API_KEY.
-- Z.ai uses ZAI_API_KEY; China accounts may set ZAI_API_REGION=bigmodel-cn.
-- Kimi and MiniMax use KIMI_API_KEY and MINIMAX_API_KEY.
-- Never ask me to paste a key or browser cookie into chat.
-
-Optional monitor setup:
-- Read configured Harness provider ids and ask which id should receive a monitor.
-- Add only non-secret config under the existing dsh-usage-stats Cordis entry.
-- Store credential reference names, never credential values.
-- Validate relative request.path and JSON Pointer fields beginning with /.
-- Do not enable cross-origin, insecure HTTP, or private-network access unless I explicitly request it.
 ```
 
 只获准检查而不能修改时运行：
@@ -345,13 +196,9 @@ npx --yes github:menghun3-cn/dsh-usage-stats --check
 
 ## 隐私与安全 / Privacy & security
 
-- API Key、OpenCode `auth.json`、Cookie 与管理 PAT 不会进入浏览器响应、插件缓存或日志。
-- Sub2API `sub2api-auth` 复用 provider 自己的推理 API Key（模型页已配置的那个），不会再引入或落盘额外的面板凭据。
-- 自定义 monitor 默认要求 HTTPS、同源相对路径、手动 redirect 和 JSON 响应，body 上限为 1 MiB。
-- 发凭据前会筛选域名的 IPv4/IPv6 解析结果并固定一个允许的连接地址，优先使用公网地址；HTTPS 域名解析到 `198.18.0.0/15` 时可作为 Clash/Mihomo 等代理的 synthetic fake-IP 使用。字面量 `198.18/15`、其他私网/特殊地址仍默认拒绝，防止 DNS rebinding 绕过私网限制。
-- `usageBaseURL` 禁止内嵌 username/password；`Authorization`、`X-API-Key`、`API-Key` 等 header 必须由 credential ref 注入。
-- 五个端点仅接受 GET，并同时校验 peer socket 与 Host；支持 IPv4、IPv4-mapped IPv6 和 `[::1]:port`。
-- 用量缓存 `~/.dsh/storages/usage-stats-cache.json` 只保存聚合 Token、会话 id、不透明 revision 与折叠游标，不保存提示词、回复或文件路径。
+- 面板与徽标只显示聚合后的 Token 数字；凭据、提示词、回复、文件路径都不进入浏览器响应、缓存或日志。
+- 插件端点仅接受 GET，并同时校验 peer socket 与 Host；非回环请求返回 `403`，其他方法返回 `405`；所有响应均为 JSON 并带 `Cache-Control: no-cache`。
+- 用量缓存 `~/.dsh/storages/usage-stats-cache.json` 只保存聚合 Token、会话 id、不透明 revision 与折叠游标。
 
 本机反向代理会让插件看到代理自身的回环地址。请勿把端点经反向代理暴露到局域网或公网；确需代理时必须在代理层增加可靠认证与访问控制。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
@@ -369,13 +216,13 @@ npx --yes github:menghun3-cn/dsh-usage-stats --check
 
 | Method | Path | Response |
 | --- | --- | --- |
-| `GET` | `/api/usage-stats/usage` | 按日期/provider/model 聚合的 Token 与缓存命中率 |
-| `GET` | `/api/usage-stats/providers` | provider 列表、account mode、adapter、状态与预警摘要 |
-| `GET` | `/api/usage-stats/account?provider=<id>` | 当前 provider 的统一余额或 Token Plan 快照；`refresh=1` 强制刷新 |
-| `GET` | `/api/usage-stats/balance?provider=<id>` | `0.1.x` 余额兼容路由 |
-| `GET` | `/api/usage-stats/subscriptions` | `0.1.x` Token Plan 兼容路由 |
+| `GET` | `/api/usage-stats/usage` | 按日期/provider/model 聚合的 Token 与缓存命中率（最近 400 天） |
+| `GET` | `/api/usage-stats/providers` | 兼容空壳：provider 列表（空） |
+| `GET` | `/api/usage-stats/account?provider=<id>` | 兼容空壳：`not-configured` |
+| `GET` | `/api/usage-stats/balance?provider=<id>` | 兼容空壳：`not-configured` |
+| `GET` | `/api/usage-stats/subscriptions` | 兼容空壳：`not-configured` |
 
-非 GET 返回 `405`，非回环请求返回 `403`；所有响应均为 JSON 并带 `Cache-Control: no-cache`。
+非 GET 返回 `405`，非回环请求返回 `403`。
 
 ## 开发与验证 / Development
 
@@ -386,23 +233,18 @@ npm test
 npm pack --dry-run
 ```
 
-`npm test` 完全离线，覆盖 bundle、客户端渲染与请求竞态、服务端安全边界、余额/Token Plan adapter、缓存和安装器幂等性。真实数据验证需先运行 `dsh web`：
+`npm test` 完全离线，覆盖 bundle、客户端渲染与请求竞态、服务端安全边界、400 天保留裁剪、缓存和安装器幂等性。真实数据验证需先运行 `dsh web`：
 
 ```bash
 npm run validate:live
 node scripts/check-balance.mjs
 ```
 
-所有服务端脚本均遵循 `DSH_HOME`。`check-balance.mjs` 可能显示真实余额，不要把输出粘贴到公开 issue。
+所有服务端脚本均遵循 `DSH_HOME`。
 
-## 兼容性与致谢 / Compatibility & credits
+## 兼容性 / Compatibility
 
-当前版本为 `0.2.9`，已适配 Harness 0.2.0-rc.2 的插件规范：服务端以 Cordis 对象插件面挂载（`module.default = { name, inject, apply }`，不引入第二份 cordis 副本），路由经 `webServer.register` 注册；客户端以 `__ModuleLoader__` factory 格式发布 `exports["./client"]` 包，注册到 0.2.0 的 `shell.overlay` 布局槽位（无 `react-dom` 依赖，直接消费平台 `react` 种子与 `dsh-client-ui-primitives`），数据走 `sessions.snapshotEvents` / `sessionPersistence` 句柄读取 / `settings.describe()`。Harness 预发布接口变化时可能需要同步适配。
-
-- [Javis603/token-monitor](https://github.com/Javis603/token-monitor)：参考多 provider 配额归一化与 Z.ai 限额解析。
-- [xiaoqi20/dsh-opencode-go-usage](https://github.com/xiaoqi20/dsh-opencode-go-usage)：参考 DSH 凭据接入、OpenCode `auth.json` 回退与 Bearer usage endpoint。
-
-本项目重新实现统一 account protocol、adapter 与单供应商 UI，不复制参考项目界面。
+当前版本 `0.2.17`（适配 Harness 0.2.0-rc.2 插件规范）：服务端以 Cordis 对象插件面挂载（`module.default = { name, inject, apply }`，不引入第二份 cordis 副本），路由经 `webServer.register` 注册；客户端以 `__ModuleLoader__` factory 格式发布 `exports["./client"]` 包，注册到 0.2.0 的 `shell.overlay` 布局槽位（直接消费平台 `react` 种子与 `react/jsx-runtime`，0.2.10+ 不再引入 `dsh-client-ui-primitives`），数据走 `sessions.snapshotEvents` / `sessionPersistence` 句柄读取。Harness 预发布接口变化时可能需要同步适配。
 
 ## License
 
