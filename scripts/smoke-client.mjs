@@ -1,6 +1,6 @@
 // Smoke-test the hand-written client bundle outside the browser:
 // 1. feed it to a fake __ModuleLoader__ (captures the factory)
-// 2. run the factory with a fake require (real react, stubbed primitives)
+// 2. run the factory with a fake require (real react, nothing else)
 // 3. render <UsageStatsPanel t> with react-dom/server
 // 4. run apply(ctx) against a stub client context
 import { createRequire } from "node:module";
@@ -17,59 +17,54 @@ const react = require("react");
 const jsxRuntime = require("react/jsx-runtime");
 const { renderToStaticMarkup } = require("react-dom/server");
 
-// Fake primitives: every named export is a no-op component (returns its props as children is not needed).
-const Stub = () => null;
-const primitives = new Proxy({}, { get: () => Stub });
-
 let captured = null;
 globalThis.window = { __ModuleLoader__: { load: (entry) => { captured = entry; } } };
 globalThis.document = { querySelector: () => null, createElement: () => ({ dataset: {}, appendChild: () => {} }), head: { appendChild: () => {} } };
 
 const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "lib", "client.js"), "utf8");
-if (!source.includes("/api/usage-stats/account")) throw new Error("client must use the unified account endpoint");
-if (source.includes('fetchJson("/api/usage-stats/subscriptions")')) throw new Error("client must not bulk-fetch every subscription provider");
+// Token-usage-only client: the provider account / balance / subscription area
+// was removed, so the client must not fetch any of those endpoints anymore.
+if (source.includes("/api/usage-stats/account")) throw new Error("client must not fetch the provider account endpoint");
+if (source.includes("/api/usage-stats/providers")) throw new Error("client must not fetch the providers endpoint");
 if (!source.includes('ctx.slots.inject("shell.overlay"')) throw new Error("client must register on the 0.2.0 shell.overlay layout slot");
 if (source.includes('require("react-dom")')) throw new Error("client must not depend on react-dom (the shell bundle does not seed it)");
 if (!source.includes('document.addEventListener("pointerdown"')) throw new Error("open panel must listen for outside pointerdown");
 if (!source.includes('event.key === "Escape"')) throw new Error("open panel must dismiss on Escape");
 if (!source.includes("ref: panelRef")) throw new Error("open panel must expose a ref for outside-click detection");
-// Badge layout regression: the collapsed badge must keep the 「用量/余额」label,
-// render the account value as a separate middle element, and keep today's token
-// count on the right — the label must never be replaced by the amount.
+// The floating badge must stay above the bottom-left user menu and keep its
+// label plus today's token count (no provider amount anymore).
+if (!source.includes("inset:auto auto 60px 12px")) throw new Error("overlay layer must clear the bottom-left user menu");
 if (!source.includes('translate("panel.badge")')) throw new Error("badge must keep the label text");
-if (!source.includes("badgeAmountText !== null &&")) throw new Error("badge amount must be a separate middle element");
-if (!source.includes("S.badgeAmount")) throw new Error("badge amount element is missing its class");
 if (!source.includes("badgeCount !== null && react_jsx_runtime.jsx(\"span\", { className: S.badgeCount")) throw new Error("badge must keep the today token count on the right");
 new Function(source)(); // executes the window.__ModuleLoader__.load call
 
 if (captured === null) throw new Error("loader did not capture the bundle");
 if (captured.id !== "dsh-usage-stats") throw new Error(`unexpected id ${captured.id}`);
 
+// Strict factory require: beyond the platform guarantee (react + jsx-runtime),
+// ANY other specifier fails, proving the bundle has zero external deps.
 const exports_ = captured.factory((spec) => {
 	if (spec === "react") return react;
 	if (spec === "react/jsx-runtime") return jsxRuntime;
-	if (spec === "@deepseek-ai/dsh-client-ui-primitives") return primitives;
 	throw new Error(`unexpected require: ${spec}`);
 });
 
 if (typeof exports_.apply !== "function") throw new Error("missing apply export");
 
-const { shouldDismissPanel, safeDiagnosticReason } = exports_;
+const { shouldDismissPanel } = exports_;
 const panelNode = { contains: (target) => target === "panel-child" };
 const layerNode = { contains: (target) => target === "badge-child" };
 if (shouldDismissPanel([panelNode], "panel-child", layerNode, panelNode)) throw new Error("panel click must stay open");
 if (shouldDismissPanel([layerNode], "badge-child", layerNode, panelNode)) throw new Error("badge click must stay inside");
 if (!shouldDismissPanel([], "page-content", layerNode, panelNode)) throw new Error("outside click must dismiss");
 if (!shouldDismissPanel([], "page-content", null, null)) throw new Error("missing refs must fail safe as outside");
-if (safeDiagnosticReason("all-addresses-unreachable") !== "all-addresses-unreachable") throw new Error("safe reason should pass");
-if (safeDiagnosticReason("Authorization: Bearer secret") !== null) throw new Error("secret-like reason must be rejected");
-if (safeDiagnosticReason("x".repeat(161)) !== null) throw new Error("oversized reason must be rejected");
-console.log("panel dismissal and diagnostic guards ok");
+console.log("panel dismissal guards ok");
 
 // Render the panel (closed state) to static markup.
 const { UsageStatsPanel } = exports_;
 const markup = renderToStaticMarkup(react.createElement(UsageStatsPanel, { wide: true, t: (key) => key }));
-if (!markup.includes("用量/余额") && !markup.includes("panel.badge")) throw new Error("badge label missing from markup");
+if (!markup.includes("用量") && !markup.includes("panel.badge")) throw new Error("badge label missing from markup");
+if (!markup.includes("usg_badge")) throw new Error("badge element missing from markup");
 console.log("render ok, markup length:", markup.length);
 
 // Apply against a stub client context.
@@ -112,135 +107,43 @@ if (!dayDetail.includes("ark · deepseek-v4-flash")) throw new Error("same model
 if (dayDetail.length < 500) throw new Error("day detail markup too small");
 console.log("day detail render ok (provider-prefixed models), markup length:", dayDetail.length);
 
-// Balance and subscription providers share one account-card frame. Only the
-// selected provider is rendered; the inner payload varies by account mode.
-const { ProviderAccountCard, buildProviderChoices } = exports_;
-const translateAccount = (key, params) => {
-	if (params?.value !== void 0) return `${key}:${params.value}`;
-	if (params?.refs !== void 0) return `${key}:${params.refs}`;
-	if (params?.ref !== void 0) return `${key}:${params.ref}`;
-	return key;
-};
-const deepseekMarkup = renderToStaticMarkup(react.createElement(ProviderAccountCard, {
-	provider: { id: "deepseek-official", displayName: "DeepSeek", accountMode: "balance" },
-	account: {
-		id: "deepseek-official",
-		displayName: "DeepSeek",
-		mode: "balance",
-		status: "ok",
-		balance: { remaining: 36.44, currency: "CNY", unlimited: false, breakdown: { toppedUp: 20, granted: 16.44 } }
-	},
-	accountLoading: false,
-	accountError: null,
-	translate: translateAccount,
-	onRetry: () => {}
-}));
-const goSubscription = {
-	id: "opencode-go",
-	displayName: "OpenCode Go",
-	status: "ok",
-	plan: "Go",
-	windows: [
-		{ kind: "session", usedPercent: 12, remainingPercent: 88, resetsAt: "2026-08-14T01:00:00Z" },
-		{ kind: "weekly", usedPercent: 34, remainingPercent: 66 },
-		{ kind: "monthly", usedPercent: 56, remainingPercent: 44 }
-	]
-};
-const goMarkup = renderToStaticMarkup(react.createElement(ProviderAccountCard, {
-	provider: { id: "opencode-go", displayName: "OpenCode Go", accountMode: "subscription", subscriptionId: "opencode-go" },
-	account: { ...goSubscription, mode: "subscription" },
-	accountLoading: false,
-	accountError: null,
-	translate: translateAccount,
-	onRetry: () => {}
-}));
-if (!deepseekMarkup.includes("usg_accountCard") || !goMarkup.includes("usg_accountCard")) throw new Error("both account modes must use the shared card frame");
-if (!deepseekMarkup.includes("data-account-mode=\"balance\"") || !deepseekMarkup.includes("DeepSeek") || deepseekMarkup.includes("progressbar")) throw new Error("DeepSeek must render only monetary balance data");
-if (!goMarkup.includes("data-account-mode=\"subscription\"") || !goMarkup.includes("OpenCode Go")) throw new Error("OpenCode Go must render the subscription account mode");
-if ((goMarkup.match(/role="progressbar"/g) ?? []).length !== 3 || !goMarkup.includes("width:12%")) throw new Error("OpenCode Go must render three quota meters");
-const invalidMarkup = renderToStaticMarkup(react.createElement(ProviderAccountCard, {
-	provider: { id: "minimax", displayName: "MiniMax", accountMode: "subscription" },
-	account: { id: "minimax", displayName: "MiniMax", mode: "subscription", status: "invalid-response", windows: [], reason: "all-addresses-unreachable" },
-	accountLoading: false,
-	accountError: null,
-	translate: translateAccount,
-	onRetry: () => {}
-}));
-if (!invalidMarkup.includes("account.status.invalidResponse") || !invalidMarkup.includes("account.invalidResponse")) throw new Error("invalid account responses need a distinct status and explanation");
-if (!invalidMarkup.includes("account.reason.allAddressesUnreachable")) throw new Error("safe diagnostic reason must render in account card");
-
-// Local security-policy rejections must render a distinct blocked state, not
-// the "provider has no balance interface" unsupported message.
-const blockedMarkup = renderToStaticMarkup(react.createElement(ProviderAccountCard, {
-	provider: { id: "relay-a", displayName: "Relay A", accountMode: "balance" },
-	account: { id: "relay-a", displayName: "Relay A", mode: "balance", status: "blocked", balance: null },
-	accountLoading: false,
-	accountError: null,
-	translate: translateAccount,
-	onRetry: () => {}
-}));
-const blockedSubMarkup = renderToStaticMarkup(react.createElement(ProviderAccountCard, {
-	provider: { id: "opencode-go", displayName: "OpenCode Go", accountMode: "subscription" },
-	account: { id: "opencode-go", displayName: "OpenCode Go", mode: "subscription", status: "blocked", windows: [] },
-	accountLoading: false,
-	accountError: null,
-	translate: translateAccount,
-	onRetry: () => {}
-}));
-if (!blockedMarkup.includes("account.status.blocked") || !blockedMarkup.includes("account.blocked")) throw new Error("blocked balance queries need a distinct status and neutral explanation");
-if (!blockedSubMarkup.includes("account.status.blocked") || !blockedSubMarkup.includes("account.blocked")) throw new Error("blocked subscription queries need a distinct status and neutral explanation");
-if (blockedMarkup.includes("balance.unsupported")) throw new Error("blocked must not reuse the unsupported explanation");
-if (blockedMarkup.includes("balance.blocked") || blockedSubMarkup.includes("balance.blocked")) throw new Error("blocked must not reuse the balance-specific explanation");
-if (!source.includes('"account.status.blocked"') || !source.includes('"account.blocked"')) throw new Error("blocked status keys missing from client locales");
-if (source.includes('"balance.blocked"')) throw new Error("balance-specific blocked copy must not be reintroduced");
-
-const choices = buildProviderChoices([
-	{ id: "deepseek-official", displayName: "DeepSeek", adapter: "deepseek-balance", accountMode: "balance", configured: true },
-	{ id: "zai-coding-cn", displayName: "Z.ai CN", adapter: "zai-token-plan", accountMode: "subscription", configured: true },
-	{ id: "opencode-go", displayName: "OpenCode Go", adapter: "opencode-go", accountMode: "subscription", configured: true }
-]);
-if (choices.length !== 3) throw new Error(`provider metadata must remain one row per provider, got ${choices.length}`);
-if (choices.find((provider) => provider.id === "zai-coding-cn")?.accountMode !== "subscription") throw new Error("Z.ai must prefer its subscription presentation");
-const selectedMarkup = goMarkup;
-if (selectedMarkup.includes("DeepSeek") || selectedMarkup.includes("Z.ai")) throw new Error("the account area must render only the selected provider");
-console.log("unified single-provider account card ok, balance:", deepseekMarkup.length, "subscription:", goMarkup.length);
-
-// Race regression (P1): usage and account must each keep their OWN staleness
-// counter, so an account request issued right after a usage request must NOT
-// invalidate the in-flight usage response.
-const { createLoader, fmtCurrency } = exports_;
+// Per-request staleness guard must still isolate the usage loader.
+const { createLoader } = exports_;
 const usageLoader = createLoader();
-const accountLoader = createLoader();
 const usageId = usageLoader.start();
-const accountId = accountLoader.start();
-if (!usageLoader.isCurrent(usageId)) throw new Error("race: account start invalidated the usage request");
-if (!accountLoader.isCurrent(accountId)) throw new Error("account request must stay current");
+if (!usageLoader.isCurrent(usageId)) throw new Error("fresh usage request must stay current");
 usageLoader.start(); // a newer usage refresh supersedes the old one
 if (usageLoader.isCurrent(usageId)) throw new Error("a newer usage start must supersede the previous usage request");
-if (!accountLoader.isCurrent(accountId)) throw new Error("account must not be affected by usage refreshes");
-console.log("loader race regression ok (independent usage/account counters)");
+console.log("loader staleness guard ok");
 
 // Currency formatting must respect the reported currency, not hardcode ¥.
+const { fmtCurrency } = exports_;
 const cny = fmtCurrency("36.44", "CNY");
 if (!cny.includes("36.44")) throw new Error(`unexpected CNY format: ${cny}`);
 if (fmtCurrency(void 0, "CNY") !== "—") throw new Error("missing amount must render em dash");
 if (fmtCurrency("9.9", "USD").includes("¥")) throw new Error("USD must not render as ¥");
 console.log("currency formatting ok:", cny);
 
-// Chinese-unit token formatting: large counts must read as 亿/万, small counts
-// stay exact, and nothing below 1 万 may gain a unit suffix.
-const { fmtZh, WeekBars } = exports_;
-if (fmtZh(172340000) !== "1.7234亿") throw new Error(`unexpected fmtZh: ${fmtZh(172340000)}`);
-if (fmtZh(99991230) !== "9999.123万") throw new Error(`unexpected fmtZh: ${fmtZh(99991230)}`);
+// Two-decimal token formatting: 亿/万 units above 1 万, exact two-decimal
+// digits below, and every size carries exactly two decimals.
+const { fmtZh, fmt, fmtHit } = exports_;
+if (fmtZh(172340000) !== "1.72亿") throw new Error(`unexpected fmtZh: ${fmtZh(172340000)}`);
+if (fmtZh(123456789) !== "1.23亿") throw new Error(`unexpected fmtZh: ${fmtZh(123456789)}`);
+if (fmtZh(99991230) !== "9999.12万") throw new Error(`unexpected fmtZh: ${fmtZh(99991230)}`);
 if (fmtZh(11200) !== "1.12万") throw new Error(`unexpected fmtZh: ${fmtZh(11200)}`);
-if (fmtZh(12345678) !== "1234.5678万") throw new Error(`unexpected fmtZh: ${fmtZh(12345678)}`);
-if (fmtZh(10000) !== "1万") throw new Error(`unexpected fmtZh: ${fmtZh(10000)}`);
-if (fmtZh(9999) !== "9999") throw new Error("values below 1 万 must stay exact");
-if (fmtZh(0) !== "0") throw new Error("zero must render as 0");
-console.log("fmtZh chinese-unit formatting ok");
+if (fmtZh(12345678) !== "1234.57万") throw new Error(`unexpected fmtZh: ${fmtZh(12345678)}`);
+if (fmtZh(10000) !== "1.00万") throw new Error(`unexpected fmtZh: ${fmtZh(10000)}`);
+if (fmtZh(9999) !== "9999.00") throw new Error("values below 1 万 must stay two-decimal exact");
+if (fmtZh(1234.5) !== "1234.50") throw new Error("fractional token counts must keep two decimals");
+if (fmtZh(0) !== "0.00") throw new Error("zero must render as 0.00");
+if (fmt(1234.5) !== "1,234.50") throw new Error(`unexpected fmt: ${fmt(1234.5)}`);
+if (fmtHit(61.2) !== "61.20%") throw new Error(`unexpected fmtHit: ${fmtHit(61.2)}`);
+if (fmtHit(null) !== "—") throw new Error("missing hit rate must render em dash");
+console.log("two-decimal formatting ok");
 
 // Render the last-7-days bar chart: every bar must be a selectable button, the
 // tallest day maps to the deepest bar, and zero-token days still get a stub.
+const { WeekBars } = exports_;
 const weekDays = [];
 const weekNow = new Date();
 for (let i = 6; i >= 0; i -= 1) {
@@ -255,41 +158,9 @@ const weekMarkup = renderToStaticMarkup(react.createElement(WeekBars, {
 	onSelect: () => {}
 }));
 if ((weekMarkup.match(/usg_weekBar"|usg_weekBar /g) ?? []).length !== 7) throw new Error("week chart must render exactly 7 bars");
-if (!weekMarkup.includes("1.2346亿")) throw new Error("week chart tooltips must use chinese units");
+if (!weekMarkup.includes("1.23亿")) throw new Error("week chart tooltips must use two-decimal chinese units");
 if (!weekMarkup.includes("usg_weekBarFill")) throw new Error("week chart bars missing their fill");
 if (!weekMarkup.includes("usg_weekBarLabel")) throw new Error("week chart bars missing their weekday label");
 console.log("week bar chart render ok, markup length:", weekMarkup.length);
 
-// Collapsed-badge account value + warning policy (v0.2.0 unified account model).
-const { badgeAccountValue, badgeWarnOf } = exports_;
-// balance just above the threshold => normal, no warning
-const balanceOk = badgeAccountValue({ mode: "balance", status: "ok", balance: { remaining: 6, currency: "USD" } });
-if (balanceOk === null || balanceOk.kind !== "balance" || balanceOk.value !== 6) throw new Error(`balance 6 must render amount, got ${JSON.stringify(balanceOk)}`);
-if (!balanceOk.display.includes("6")) throw new Error("balance display must include the amount");
-if (badgeWarnOf({ mode: "balance", status: "ok", balance: { remaining: 6, currency: "USD" } }) !== false) throw new Error("balance 6 must NOT warn");
-// balance at/below threshold => warning (red)
-if (badgeWarnOf({ mode: "balance", status: "ok", balance: { remaining: 5, currency: "USD" } }) !== true) throw new Error("balance 5 must warn");
-if (badgeWarnOf({ mode: "balance", status: "ok", balance: { remaining: 0, currency: "USD" } }) !== true) throw new Error("balance 0 must warn");
-// subscription: lowest remaining percent wins
-const subLow = badgeAccountValue({ mode: "subscription", status: "ok", windows: [{ remainingPercent: 40 }, { remainingPercent: 4 }] });
-if (subLow === null || subLow.kind !== "percent" || subLow.value !== 4 || subLow.display !== "4%") throw new Error(`subscription must warn on the lowest window, got ${JSON.stringify(subLow)}`);
-if (badgeWarnOf({ mode: "subscription", status: "ok", windows: [{ remainingPercent: 40 }, { remainingPercent: 4 }] }) !== true) throw new Error("subscription with a 4% window must warn");
-if (badgeWarnOf({ mode: "subscription", status: "ok", windows: [{ remainingPercent: 40 }, { remainingPercent: 55 }] }) !== false) throw new Error("subscription all above 5% must NOT warn");
-// not-configured / unavailable / empty => no misleading numeric value, no warning
-if (badgeAccountValue({ mode: "balance", status: "not-configured" }) !== null) throw new Error("not-configured balance must not show a numeric badge");
-if (badgeAccountValue({ mode: "subscription", status: "unavailable", windows: [] }) !== null) throw new Error("unavailable subscription must not show a numeric badge");
-if (badgeWarnOf({ mode: "balance", status: "not-configured" }) !== false) throw new Error("not-configured must never warn");
-if (badgeWarnOf(null) !== false) throw new Error("null account must never warn");
-// stale/unavailable snapshots that still carry PREVIOUS data must NOT render a
-// colored value (the badge must not show an outdated balance/quota as current)
-const staleBalance = { mode: "balance", status: "unavailable", stale: true, balance: { remaining: 2, currency: "CNY" } };
-if (badgeAccountValue(staleBalance) !== null) throw new Error("stale balance snapshot must not render a numeric badge");
-if (badgeWarnOf(staleBalance) !== false) throw new Error("stale balance snapshot must never warn");
-const staleSubscription = { mode: "subscription", status: "unavailable", stale: true, windows: [{ remainingPercent: 3 }] };
-if (badgeAccountValue(staleSubscription) !== null) throw new Error("stale subscription snapshot must not render a numeric badge");
-if (badgeWarnOf(staleSubscription) !== false) throw new Error("stale subscription snapshot must never warn");
-// a stale flag on an otherwise ok snapshot is also a no-render condition
-const okButStale = { mode: "balance", status: "ok", stale: true, balance: { remaining: 100, currency: "USD" } };
-if (badgeAccountValue(okButStale) !== null) throw new Error("ok-but-stale snapshot must not render a numeric badge");
-console.log("collapsed-badge account value + warning policy ok");
 console.log("SMOKE TEST PASSED");
