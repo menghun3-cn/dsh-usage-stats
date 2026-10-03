@@ -38,6 +38,11 @@ if (!source.includes('translate("panel.badge")')) throw new Error("badge must ke
 if (!source.includes('translate("panel.badgeMode")')) throw new Error("badge mode switcher must exist and be localized");
 if (!source.includes("dsh-usage-stats.badgeMode")) throw new Error("badge mode must persist across restarts");
 if (!source.includes("window.setInterval(loadUsage, 60000)")) throw new Error("periodic refresh must run regardless of panel state");
+if (!source.includes('translate("panel.share")')) throw new Error("share button must exist and be localized");
+if (!source.includes("function createShareCanvas")) throw new Error("the share image renderer must exist");
+if (!source.includes("S.shareBackdrop")) throw new Error("the share dialog must be part of the panel layer");
+if (!source.includes("download: `dsh-usage-")) throw new Error("the share download must carry the dsh-usage file name");
+if (!source.includes('translate("share.download")')) throw new Error("the download action must be localized");
 if (!source.includes('badgeCount !== null && react_jsx_runtime.jsx("span", { className: S.badgeCount')) throw new Error("badge must keep the token count on the right");
 // Last-14-days view is gone for good; the panel shows three summary cards
 // (today / month / all-time built from the same stats), the last-7-days bar
@@ -167,6 +172,38 @@ if (badgeValueOf("today", null) !== null) throw new Error("badgeValueOf(null sta
 // renders when the panel is open, so this is a source-level check).
 if (!source.includes('jsx("button", {') || !source.includes('className: `${S.badgeModeButton}${badgeMode === mode')) throw new Error("header must offer the three badge modes");
 console.log("two-decimal formatting ok");
+
+// ---- share image ----
+const { shareLayout, drawShare } = exports_;
+const demoWeek = [];
+for (let i = 6; i >= 0; i -= 1) demoWeek.push({ date: "2025-08-0" + (7 - i), tokens: 100 + i * 50 });
+const demoMonths = [];
+for (let i = 0; i < 12; i += 1) demoMonths.push({ month: `2025-${String(i + 1).padStart(2, "0")}`, tokens: 2000 + i * 300 });
+const layout = shareLayout(demoStats, demoWeek, demoMonths);
+if (layout.width !== 1200 || layout.height !== 880) throw new Error(`unexpected share canvas size: ${layout.width}x${layout.height}`);
+if (layout.bars.length !== 7) throw new Error("the share image must draw all 7 week bars");
+if (layout.points.length !== 12) throw new Error("the share image must draw all 12 month points");
+if (layout.barMax <= 0 || layout.ptMax <= 0) throw new Error("share layout maxima must stay positive");
+const ascending = layout.points.every((pt, i) => i === 0 || pt.x > layout.points[i - 1].x);
+if (!ascending) throw new Error("share month points must run oldest→newest");
+if (layout.points[layout.points.length - 1].isCurrent !== true) throw new Error("the newest month must be marked current");
+// inert 2D-context stub: every draw call records its name, no DOM needed
+const drawCalls = [];
+const stubCtx = new Proxy({}, {
+	get(target, key) {
+		if (typeof key !== "string") return void 0;
+		drawCalls.push(key);
+		const fn = (...args) => { drawCalls.push(`${key}!`); return void 0; };
+		fn.call = Function.prototype.call;
+		return fn;
+	}
+});
+drawShare(stubCtx, layout, { stats: demoStats, title: "T", subtitle: "S", translate: (k) => k, locale: "zh", footerNote: "F" });
+for (const expected of ["fillRect", "fillText", "stroke"]) {
+	if (!drawCalls.includes(expected)) throw new Error(`share drawing must ${expected} (saw ${drawCalls.length} calls)`);
+}
+if (drawCalls.filter((c) => c === "fillText!").length < 3) throw new Error("share image must label the summary cards");
+console.log("share layout + draw smoke ok,", drawCalls.length, "ctx calls");
 
 // Render the last-7-days bar chart: every bar must be a selectable button, the
 // tallest day maps to the deepest bar, and zero-token days still get a stub.
