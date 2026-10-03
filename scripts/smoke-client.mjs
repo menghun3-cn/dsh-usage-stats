@@ -42,6 +42,18 @@ if (source.includes('"usage.recent"')) throw new Error("last-14-days view must b
 if (!source.includes('translate("usage.week")')) throw new Error("last-7-days view must stay");
 if (!source.includes('translate("usage.months")')) throw new Error("last-12-months view must exist");
 if (!source.includes("function MonthBars")) throw new Error("MonthBars component missing");
+// Regression guard: the 0.2.13 flash-crash was a missing `translate` prop on
+// the MonthBars CALL SITE — the panel threw on first data render and the whole
+// overlay (badge included) unmounted. The call site must pass it, and the
+// panel must be wrapped in a render error boundary so a future crash degrades
+// to an inline error instead of nuking the badge.
+{
+	const mbIdx = source.indexOf("jsx(MonthBars, {");
+	if (mbIdx === -1) throw new Error("MonthBars call site missing");
+	const mbChunk = source.slice(mbIdx, source.indexOf("})", mbIdx) + 2);
+	if (!mbChunk.includes("translate,")) throw new Error("MonthBars call site must pass translate");
+}
+if (!source.includes("class PanelBoundary extends react.Component")) throw new Error("panel must be wrapped in a render error boundary");
 new Function(source)(); // executes the window.__ModuleLoader__.load call
 
 if (captured === null) throw new Error("loader did not capture the bundle");
@@ -184,6 +196,10 @@ if ((monthsMarkup.match(/usg_weekBar"|usg_weekBar /g) ?? []).length !== 12) thro
 if (!monthsMarkup.includes("1.23亿")) throw new Error("month chart tooltips must use two-decimal chinese units");
 if (!monthsMarkup.includes("usg_weekBarToday")) throw new Error("current month must be highlighted");
 if ((monthsMarkup.match(/usg_weekBarLabel/g) ?? []).length !== 12) throw new Error("month chart must label every bar");
-console.log("month bar chart render ok, markup length:", monthsMarkup.length);
+// The component must tolerate a missing translate (it is required by the call
+// site contract, but the 0.2.13 flash-crash shows a crash here is fatal).
+const tolerant = renderToStaticMarkup(react.createElement(MonthBars, { months: months.slice(0, 3), onSelect: () => {} }));
+if (!tolerant.includes("usg_weekBar")) throw new Error("MonthBars must not throw without translate");
+console.log("month bar chart render ok (incl. no-translate tolerance), markup length:", monthsMarkup.length);
 
 console.log("SMOKE TEST PASSED");
