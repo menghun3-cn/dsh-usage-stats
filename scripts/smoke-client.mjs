@@ -38,10 +38,14 @@ if (!source.includes('translate("panel.badge")')) throw new Error("badge must ke
 if (!source.includes("badgeCount !== null && react_jsx_runtime.jsx(\"span\", { className: S.badgeCount")) throw new Error("badge must keep the today token count on the right");
 // Last-14-days view is gone for good; the panel shows three summary cards
 // (today / month / all-time built from the same stats), the last-7-days bar
-// chart, and the last-12-months LIST with the newest month first.
+// chart with per-bar VALUE LABELS, and the last-12-months LINE chart with
+// per-point value labels.
 if (source.includes('"usage.recent"')) throw new Error("last-14-days view must be fully removed");
 if (!source.includes('jsx(WeekBars, {')) throw new Error("last-7-days bar chart must stay");
-if (!source.includes("months12.slice().reverse()")) throw new Error("month list must show the newest month first");
+if (!source.includes("S.weekBarValue")) throw new Error("week bars must show their value label");
+if (!source.includes('jsx(LineChart, {')) throw new Error("last-12-months view must be the line chart");
+if (!source.includes("function LineChart")) throw new Error("LineChart component missing");
+if (source.includes("months12.slice().reverse()")) throw new Error("month list must be removed (line chart only)");
 if (!source.includes('translate("usage.months")')) throw new Error("last-12-months view must exist");
 if (source.includes("jsx(MonthBars")) throw new Error("month chart must be removed (list only)");
 // The panel must be wrapped in a render error boundary so an unexpected crash
@@ -172,6 +176,29 @@ if ((weekMarkup.match(/usg_weekBar"|usg_weekBar /g) ?? []).length !== 7) throw n
 if (!weekMarkup.includes("1.23亿")) throw new Error("week chart tooltips must use two-decimal chinese units");
 if (!weekMarkup.includes("usg_weekBarFill")) throw new Error("week chart bars missing their fill");
 if (!weekMarkup.includes("usg_weekBarLabel")) throw new Error("week chart bars missing their weekday label");
-console.log("week bar chart render ok, markup length:", weekMarkup.length);
+if ((weekMarkup.match(/usg_weekBarValue/g) ?? []).length !== 7) throw new Error("every week bar must show its value label");
+if (!weekMarkup.includes("usg_weekBarValue\">1.23亿")) throw new Error("week bar value labels must use two-decimal chinese units");
+console.log("week bar chart render ok (value labels on bars), markup length:", weekMarkup.length);
+
+// Render the last-12-months LINE chart: a polyline across twelve points, each
+// with a two-decimal value label above it, a 2-digit month label below, and a
+// ring around the current month's point. Points stay clickable (drill-down).
+const { LineChart } = exports_;
+const monthNow = new Date();
+const months = [];
+for (let i = 11; i >= 0; i -= 1) {
+	const d = new Date(monthNow.getFullYear(), monthNow.getMonth() - i, 1);
+	const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+	months.push({ month: mk, tokens: i === 0 ? 0 : 123456789 - i * 1000 });
+}
+const lineMarkup = renderToStaticMarkup(react.createElement(LineChart, { months, translate: (key) => key, onSelect: () => {} }));
+if (!lineMarkup.includes("<polyline")) throw new Error("line chart must draw a polyline");
+if ((lineMarkup.match(/usg_lineValue/g) ?? []).length !== 12) throw new Error("line chart must label every point's value");
+if ((lineMarkup.match(/usg_lineMonth/g) ?? []).length !== 12) throw new Error("line chart must label every month");
+if (!lineMarkup.includes("usg_linePointCurrent")) throw new Error("current month point must be ring-highlighted");
+if (!/usg_lineValue[^>]*>1\.23亿/.test(lineMarkup)) throw new Error("line point values must use two-decimal chinese units");
+const hitCount = (lineMarkup.match(/usg_lineHit/g) ?? []).length;
+if (hitCount !== 12) throw new Error(`line chart must keep 12 clickable points, got ${hitCount}`);
+console.log("12-month line chart render ok, markup length:", lineMarkup.length);
 
 console.log("SMOKE TEST PASSED");
