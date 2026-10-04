@@ -46,6 +46,8 @@ if (!source.includes('translate("share.download")')) throw new Error("the downlo
 if (!source.includes("const copyShareToClipboard = async")) throw new Error("the WeChat share action must exist");
 if (!source.includes("new ClipboardItem")) throw new Error("the WeChat share must write to the system clipboard");
 if (!source.includes('translate(shareCopied ? "share.copied" : "share.wechat")')) throw new Error("the WeChat button must show copy feedback");
+if (!source.includes("paint-order:stroke")) throw new Error("line value labels must knock out the polyline behind them");
+if (!source.includes("strokeText")) throw new Error("the share canvas must halo line values before filling them");
 const primaryCount = source.split("S.sharePrimary").length - 1;
 if (primaryCount !== 1) throw new Error(`S.sharePrimary must appear exactly once (the WeChat button), found ${primaryCount}`);
 if (!source.includes('badgeCount !== null && react_jsx_runtime.jsx("span", { className: S.badgeCount')) throw new Error("badge must keep the token count on the right");
@@ -204,7 +206,7 @@ const stubCtx = new Proxy({}, {
 	}
 });
 drawShare(stubCtx, layout, { stats: demoStats, title: "T", subtitle: "S", translate: (k) => k, locale: "zh", footerNote: "F" });
-for (const expected of ["fillRect", "fillText", "stroke"]) {
+for (const expected of ["fillRect", "fillText", "stroke", "strokeText"]) {
 	if (!drawCalls.includes(expected)) throw new Error(`share drawing must ${expected} (saw ${drawCalls.length} calls)`);
 }
 if (drawCalls.filter((c) => c === "fillText!").length < 3) throw new Error("share image must label the summary cards");
