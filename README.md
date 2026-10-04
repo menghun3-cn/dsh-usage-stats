@@ -39,6 +39,52 @@ Token usage analytics for the DeepSeek Harness Web GUI (`dsh web`).
 
 ## 快速安装 / Quick start
 
+### 交给 AI 安装（最快，复制即用）
+
+> 复制下面整段发给任意 AI 助手（DeepSeek、豆包、Kimi、ChatGPT 或本地编码 Agent 等），它就能替你把插件装好。README 其余部分不用一起复制。
+
+<details>
+<summary><strong>复制以下整段 → 粘贴给 AI</strong></summary>
+
+```text
+请帮我安装 dsh-usage-stats 这个 DeepSeek Harness 插件（token 用量统计面板），
+安装目标是 desktop profile。
+
+步骤：
+1. 先确认 DeepSeek Harness 桌面应用已完全退出（GUI 运行时会锁住 profile 的
+   package.json，导致安装报 EPERM）。
+2. 确定 DSH 安装目录 <dsh>：通常是
+   D:\Program Files\DeepSeek Harness\resources\app.asar\dsh。
+   若该路径不存在，请在 DeepSeek Harness 的安装目录下找到
+   resources\app.asar\dsh 并记录完整路径；实在找不到就告诉我。
+3. 在 PowerShell 中执行以下命令（把 <dsh> 替换为第 2 步的真实路径）：
+   $env:ELECTRON_RUN_AS_NODE = '1'
+   $env:GIT_CONFIG_COUNT = '2'
+   $env:GIT_CONFIG_KEY_0 = 'url.https://github.com/.insteadOf'
+   $env:GIT_CONFIG_VALUE_0 = 'ssh://git@github.com/'
+   $env:GIT_CONFIG_KEY_1 = 'url.https://github.com/.insteadOf'
+   $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
+   & "C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe" --expose-internals `
+     "<dsh>\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js" `
+     plugin --profile desktop add "git+https://github.com/menghun3-cn/dsh-usage-stats.git"
+4. 打开 ~\.dsh\profiles\desktop\cordis.patch.yml，在文件末尾追加（若已存在
+   id 为 usage-stats 的条目则跳过，不要重复追加）：
+   - insert:
+       - id: usage-stats
+         name: dsh-usage-stats
+5. 确认安装：读取 ~\.dsh\profiles\desktop\node_modules\dsh-usage-stats\package.json
+   的 version，并确认第 4 步的 patch 追加成功，然后告诉我结果。
+
+完成后汇报：安装路径、插件版本、patch 是否已追加。
+约束：不要读取、打印或修改 .credentials.yaml、auth.json 或任何密钥文件；
+不要改动本说明之外的任何文件；不要替用户重启正在运行的 dsh 进程。
+```
+
+</details>
+
+后续要升级时，可以这样让 AI 更新：退出桌面应用后运行
+`& "<DeepSeek Harness 安装路径>\DeepSeek Harness.exe" --expose-internals "<dsh>\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js" plugin --profile desktop update dsh-usage-stats`。
+
 ### 桌面版 GUI（desktop profile，DSH 0.2.0-rc.2）
 
 桌面版（Electron 应用）实际加载 `~/.dsh/profiles/desktop`，**不是** `web` profile——安装到 `web` 不会出现在桌面 GUI 里。使用桌面版自带的 `dsh plugin` 通道从 GitHub 仓库安装：
