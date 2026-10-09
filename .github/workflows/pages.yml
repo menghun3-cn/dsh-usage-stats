@@ -13,7 +13,6 @@ permissions:
   pages: write
   id-token: write
 
-# Avoid concurrent deploys; serialize.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -33,10 +32,27 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('catalog/catalog-source.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('catalog/v1/plugins.json','utf8'))"
 
+      - name: Stage deploy artifact
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R catalog/. _site/
+          # Mirror the file so the URL pattern documented in
+          # catalog/catalog-source.json (`/v1/plugins`, no extension) resolves.
+          cp catalog/v1/plugins.json _site/v1/plugins
+          cat > _site/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8">
+          <title>dsh-usage-stats · DSH Community Market source</title>
+          <pre>DSH Community Market catalog source
+          manifest:     <a href="catalog-source.json">catalog-source.json</a>
+          provider page: <a href="v1/plugins">v1/plugins</a></pre>
+          HTML
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: catalog
+          path: _site
 
       - id: deployment
         uses: actions/deploy-pages@v4
