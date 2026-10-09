@@ -8,9 +8,9 @@
 
 Token usage analytics for the DeepSeek Harness Web GUI (`dsh web`).
 
-![dsh-usage-stats 面板预览](docs/images/usage-panel.svg)
+![dsh-usage-stats 面板预览](docs/images/usage-panel-v2.svg)
 
-> 展示图使用脱敏演示数据（`docs/images/usage-panel-v2.svg` 为 0.2.0 旧界面存档，仅作历史对照）。
+> 展示图使用脱敏演示数据，与当前面板布局一致（深色主题示意）；`docs/images/usage-panel.svg` 为 0.2.0 旧界面存档，仅作历史对照。
 
 ## 能力速览
 
