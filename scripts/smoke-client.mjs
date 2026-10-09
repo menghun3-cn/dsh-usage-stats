@@ -281,7 +281,8 @@ if (hitCount !== 12) throw new Error(`line chart must keep 12 clickable points, 
 console.log("12-month line chart render ok, markup length:", lineMarkup.length);
 
 // ---- per-view share layouts ----
-// Day share: 3 buckets + per-model rows, canvas height grows with model count.
+// Day share mirrors the DayDetail page: summary line + per-model blocks,
+// honoring the counting scope (io hides cache buckets + hit rate).
 const { shareDayLayout, shareMonthLayout } = exports_;
 const dayForShare = {
 	date: "2025-08-15",
@@ -297,9 +298,15 @@ const dayForShare = {
 };
 const dayLayout = shareDayLayout(dayForShare, { title: "T", subtitle: "S" });
 if (dayLayout.mode !== "day") throw new Error("day layout must tag itself with mode 'day'");
-if (dayLayout.buckets.length !== 3) throw new Error("day layout must render 3 buckets (input/output/cacheRead)");
-if (dayLayout.buckets[0].key !== "input") throw new Error("first bucket must be input");
+if (dayLayout.totalTokens !== 11000) throw new Error("day layout must default to input/output scope (11000, not 12345)");
+if (dayLayout.cacheHitRate !== null) throw new Error("day layout must hide the hit rate outside cache scope");
+if (shareDayLayout(dayForShare, { includeCache: true }).totalTokens !== 12345) throw new Error("day layout in cache scope must trust day.tokens");
+if (shareDayLayout(dayForShare, { includeCache: true }).cacheHitRate !== 0.42) throw new Error("day layout in cache scope must surface the hit rate");
 if (dayLayout.models.length !== 2) throw new Error("day layout must list every model in the day entry");
+if (!source.includes("includeCache: tokenMode === \"all\"")) throw new Error("share computing must thread the counting mode");
+if (!source.includes("const includeCache = tokenMode === \"all\";")) throw new Error("DayDetail must follow the counting mode");
+if (!source.includes("if (includeCache) summarySegs.push")) throw new Error("the day summary line must append 缓存读 only in cache scope");
+if (!source.includes("if (includeCache) metaSegs.push")) throw new Error("the model meta line must append 缓存读 only in cache scope");
 const dayDrawCalls = [];
 const dayStubCtx = new Proxy({}, {
 	get(target, key) {
@@ -314,10 +321,10 @@ drawShare(dayStubCtx, dayLayout, { stats: demoStats, translate: (k) => k, locale
 for (const expected of ["fillRect", "fillText"]) {
 	if (!dayDrawCalls.includes(expected)) throw new Error(`day share drawing must ${expected}`);
 }
-if (dayDrawCalls.filter((c) => c === "fillRect!").length < 3) throw new Error(`day share image must paint hero card + bucket fills + model tracks, got ${dayDrawCalls.filter((c) => c === "fillRect!").length}`);
+if (dayDrawCalls.filter((c) => c === "fillRect!").length < 3) throw new Error(`day share image must paint background + model tracks/fills, got ${dayDrawCalls.filter((c) => c === "fillRect!").length}`);
 console.log("day share layout + draw smoke ok,", dayDrawCalls.length, "ctx calls");
 
-// Month share: monthly total + per-day horizontal bars sorted desc.
+// Month share: 合计 summary + per-day rows sorted newest→oldest (page order).
 const monthDays = [
 	{ date: "2025-08-04", tokens: 12345, cacheHitRate: 0.42 },
 	{ date: "2025-08-03", tokens: 8000, cacheHitRate: 0.5 },
@@ -327,8 +334,7 @@ const monthDays = [
 const monthLayout = shareMonthLayout("2025-08", monthDays, { title: "T", subtitle: "S" });
 if (monthLayout.mode !== "month") throw new Error("month layout must tag itself with mode 'month'");
 if (monthLayout.dayBars.length !== 4) throw new Error("month layout must render every recorded day");
-if (monthLayout.dayBars[0].tokens !== 12345) throw new Error("month bars must be sorted newest→oldest (largest first)");
-if (monthLayout.topDay.date !== "2025-08-04") throw new Error("month layout must surface the top day");
+if (monthLayout.dayBars[0].tokens !== 12345 || monthLayout.dayBars[1].key !== "2025-08-03") throw new Error("month bars must be sorted newest→oldest like the page list");
 const monthDrawCalls = [];
 const monthStubCtx = new Proxy({}, {
 	get(target, key) {
