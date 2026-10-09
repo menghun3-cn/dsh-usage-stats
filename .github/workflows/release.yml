@@ -1,0 +1,107 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.2.27). Required when run manually."
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          # Validate tag exists locally (when push-triggered) or remotely
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if ! git rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null; then
+              echo "Tag ${TAG} not found"; exit 1
+            fi
+          else
+            git fetch --depth=1 origin "refs/tags/${TAG}:refs/tags/${TAG}" || {
+              echo "Tag ${TAG} not found on origin"; exit 1;
+            }
+            git checkout "${TAG}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync catalog versions
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.tag.outputs.tag }}"
+          VER="${TAG#v}"
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          if [ "${PKG_VERSION}" != "${VER}" ]; then
+            echo "Tag ${TAG} disagrees with package.json (${PKG_VERSION}). Aborting." >&2
+            exit 1
+          fi
+          # Update catalog entries' latestVersion/revision only on tags that already shipped at or after v0.2.9.
+          node -e "const fs=require('fs');const f='catalog/v1/plugins.json';const j=JSON.parse(fs.readFileSync(f,'utf8'));j.latestVersion='${VER}';j.revision='${VER}';j.items[0].latestVersion='${VER}';j.items[0].updatedAt=new Date().toISOString();fs.writeFileSync(f,JSON.stringify(j,null,2)+'\n');"
+
+      - name: Commit catalog bump
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog/v1/plugins.json
+          git diff --cached --quiet || git commit -m "chore: bump catalog to ${{ steps.tag.outputs.tag }}"
+          git push origin HEAD:main
+
+      - name: Build notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Find the previous release tag chronologically.
+          PREV=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,publishedAt -q '. | sort_by(.publishedAt) | reverse | .[].tagName' | sed -n "/^${TAG}$/{n;p;}" || true)
+          if [ -z "${PREV}" ]; then
+            # No prior release: include commits since the previous semver tag (or 50 commits if none).
+            PREV_TAG=$(git tag --sort=-v:refname | awk -v t="${TAG}" '$0!=t {print; exit}')
+            if [ -z "${PREV_TAG}" ]; then
+              RANGE="HEAD"
+            else
+              RANGE="${PREV_TAG}..HEAD"
+            fi
+          else
+            RANGE="${PREV}..${TAG}"
+          fi
+          {
+            echo "## What changed"
+            echo ""
+            git log "${RANGE}" --no-merges --pretty=format:"- %s (%h)" || git log -50 --no-merges --pretty=format:"- %s (%h)"
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          gh release create "${TAG}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "${TAG}" \
+            --notes-file release-notes.md \
+            --target "${{ github.event_name == 'push' && github.sha || steps.tag.outputs.tag }}"
