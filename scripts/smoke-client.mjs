@@ -180,6 +180,19 @@ if (badgeValueOf("today", null) !== null) throw new Error("badgeValueOf(null sta
 if (!source.includes('jsx("button", {') || !source.includes('className: `${S.badgeModeButton}${badgeMode === mode')) throw new Error("header must offer the three badge modes");
 console.log("two-decimal formatting ok");
 
+// ---- token counting mode ----
+const { tokensOf } = exports_;
+const sampleDay = { tokens: 100, inputTokens: 40, outputTokens: 20, cacheReadTokens: 30, cacheWriteTokens: 10 };
+if (tokensOf(sampleDay, false) !== 60) throw new Error("io mode must count only input + output");
+if (tokensOf(sampleDay, true) !== 100) throw new Error("all mode must trust day.tokens");
+if (tokensOf({ tokens: 5 }, false) !== 0) throw new Error("io mode with missing buckets must be 0");
+if (tokensOf(null, true) !== 0) throw new Error("null day must be 0");
+if (!source.includes('return saved === "all" ? "all" : "io"')) throw new Error("token mode must default to input/output only");
+if (!source.includes("dsh-usage-stats.tokenMode")) throw new Error("token mode must persist across restarts");
+if (!source.includes("S.modeRow")) throw new Error("the counting-mode switcher must render in the panel body");
+if (!source.includes('translate(tokenMode === "io" ? "share.footerIo" : "share.footerAll")')) throw new Error("the share footer must state the counting mode");
+console.log("token counting mode ok");
+
 // ---- share image ----
 const { shareLayout, drawShare } = exports_;
 const demoWeek = [];
