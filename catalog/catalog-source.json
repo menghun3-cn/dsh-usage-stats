@@ -10,7 +10,7 @@
   },
   "transport": {
     "kind": "https-json",
-    "endpoint": "https://menghun3-cn.github.io/dsh-usage-stats/v1/plugins",
+    "endpoint": "https://menghun3-cn.github.io/dsh-usage-stats/v1/plugins.json",
     "method": "GET"
   },
   "query": {
