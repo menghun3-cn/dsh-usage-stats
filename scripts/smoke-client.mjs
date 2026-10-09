@@ -56,6 +56,8 @@ if (!source.includes("onShare: (day) => openShare(\"day\", day)")) throw new Err
 if (!source.includes("openShare(\"month\", { month:")) throw new Error("month drill-down must wire its share button to openShare('month', …)");
 if (!source.includes('translate("share.subtitleDay"')) throw new Error("day share subtitle must be localized");
 if (!source.includes('translate("share.subtitleMonth"')) throw new Error("month share subtitle must be localized");
+if (!source.includes("layout = shareDayLayout(o.day, o)")) throw new Error("createShareCanvas must feed the real day into day layout");
+if (!source.includes("layout = shareMonthLayout(o.month, o.days, o)")) throw new Error("createShareCanvas must feed month + its days into month layout");
 const primaryCount = source.split("S.sharePrimary").length - 1;
 if (primaryCount !== 1) throw new Error(`S.sharePrimary must appear exactly once (the WeChat button), found ${primaryCount}`);
 if (!source.includes('badgeCount !== null && react_jsx_runtime.jsx("span", { className: S.badgeCount')) throw new Error("badge must keep the token count on the right");
