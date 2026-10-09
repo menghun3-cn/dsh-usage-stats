@@ -311,6 +311,9 @@ if (!source.includes("const totalTokens = includeCache")) throw new Error("DayDe
 if (!source.includes("const tokensOfModel = (model) => includeCache")) throw new Error("DayDetail model rows must narrow to the counting scope");
 if (!source.includes("if (includeCache) summarySegs.push")) throw new Error("the day summary line must append 缓存读 only in cache scope");
 if (!source.includes("if (includeCache) metaSegs.push")) throw new Error("the model meta line must append 缓存读 only in cache scope");
+if (!source.includes("width - pad, 104")) throw new Error("the day share hit rate must sit on the header row, like the page top bar");
+if (!source.includes("S.detailShare")) throw new Error("detail pages must push their share button to the right");
+if (!source.includes("\".usg_detailShare{margin-left:auto")) throw new Error("the detail share button must be right-aligned in the header");
 const dayDrawCalls = [];
 const dayStubCtx = new Proxy({}, {
 	get(target, key) {
