@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "generatedAt": "2026-10-09T13:00:00.000Z",
-  "revision": "0.2.27",
+  "revision": "0.2.28",
   "items": [
     {
       "id": "dsh-usage-stats",
@@ -10,7 +10,7 @@
       "summary": "Token usage stats panel for the dsh web GUI.",
       "description": "在 DSH 对话界面内展示 Token 用量统计（今日/本月/累计、最近 7 天柱状图、最近 12 个月折线图、当天/当月下钻与分享图），数据来自持久化会话日志中的 provider-reported usage。catalog 条目身份与 npm 包 `dsh-usage-stats` 对齐，发布后即可通过插件市场 GUI 直接安装。",
       "homepage": "https://github.com/menghun3-cn/dsh-usage-stats",
-      "latestVersion": "0.2.27",
+      "latestVersion": "0.2.28",
       "license": "MIT",
       "categories": [
         "development",
@@ -39,8 +39,9 @@
           "dsh"
         ]
       },
-      "updatedAt": "2026-10-09T12:57:40.000Z"
+      "updatedAt": "2026-10-09T13:58:43.453Z"
     }
   ],
-  "page": {}
+  "page": {},
+  "latestVersion": "0.2.28"
 }
