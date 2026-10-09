@@ -54,33 +54,32 @@ Token usage analytics for the DeepSeek Harness Web GUI (`dsh web`).
 <summary><strong>复制以下整段 → 粘贴给 AI</strong></summary>
 
 ```text
-请帮我安装 dsh-usage-stats 这个 DeepSeek Harness 插件（token 用量统计面板），
-安装目标是 desktop profile。
+请帮我从 GitHub 安装 dsh-usage-stats 这个 DeepSeek Harness 插件
+（token 用量统计面板），安装目标是 desktop profile。
 
 步骤：
-1. 先确认 DeepSeek Harness 桌面应用已完全退出（GUI 运行时会锁住 profile 的
-   package.json，导致安装报 EPERM）。
-2. 确定 DSH 安装目录 <dsh>：通常是
+1. 先确认 DeepSeek Harness 桌面应用已完全退出（GUI 运行时会锁住
+   profile 的 package.json，导致安装报 EPERM）。
+2. 定位 DSH 安装目录 <dsh>：通常是
    D:\Program Files\DeepSeek Harness\resources\app.asar\dsh。
    若该路径不存在，请在 DeepSeek Harness 的安装目录下找到
    resources\app.asar\dsh 并记录完整路径；实在找不到就告诉我。
-3. 在 PowerShell 中执行以下命令（把 <dsh> 替换为第 2 步的真实路径）：
+3. 桌面版没有独立的 `dsh` 命令，请用捆绑 CLI 执行安装（把 <dsh>
+   替换为第 2 步的真实路径；显式 git+https 不会触发 pnpm 的 ssh
+   规范化，无需设置 GIT_CONFIG_COUNT）：
    $env:ELECTRON_RUN_AS_NODE = '1'
-   $env:GIT_CONFIG_COUNT = '2'
-   $env:GIT_CONFIG_KEY_0 = 'url.https://github.com/.insteadOf'
-   $env:GIT_CONFIG_VALUE_0 = 'ssh://git@github.com/'
-   $env:GIT_CONFIG_KEY_1 = 'url.https://github.com/.insteadOf'
-   $env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
    & "C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe" --expose-internals `
      "<dsh>\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js" `
      plugin --profile desktop add "git+https://github.com/menghun3-cn/dsh-usage-stats.git"
-4. 打开 ~\.dsh\profiles\desktop\cordis.patch.yml，在文件末尾追加（若已存在
-   id 为 usage-stats 的条目则跳过，不要重复追加）：
+   若 exe 路径不对，请先找到 DeepSeek Harness.exe 的真实路径再执行。
+4. `dsh plugin add` 只安装仓库依赖，不会自动写补丁：在
+   ~\.dsh\profiles\desktop\cordis.patch.yml 末尾幂等追加
+   （已存在 id 为 usage-stats 的条目则跳过）：
    - insert:
        - id: usage-stats
          name: dsh-usage-stats
-5. 确认安装：读取 ~\.dsh\profiles\desktop\node_modules\dsh-usage-stats\package.json
-   的 version，并确认第 4 步的 patch 追加成功，然后告诉我结果。
+5. 确认安装：读取 ~\.dsh\profiles\desktop\node_modules\dsh-usage-stats\
+   package.json 的 version，并确认第 4 步的 patch 追加成功。
 
 完成后汇报：安装路径、插件版本、patch 是否已追加。
 约束：不要读取、打印或修改 .credentials.yaml、auth.json 或任何密钥文件；
@@ -99,13 +98,6 @@ Token usage analytics for the DeepSeek Harness Web GUI (`dsh web`).
 # 2) 把下面的 <dsh> 替换为安装目录，例如
 #    D:\Program Files\DeepSeek Harness\resources\app.asar\dsh
 $env:ELECTRON_RUN_AS_NODE = '1'
-# pnpm 会把 github: 短协议规范化为 ssh（没有 SSH key 时被 GitHub 拒绝），
-# 注入 insteadOf 环境配置强制走 https（仅本次进程生效，不改全局 gitconfig）：
-$env:GIT_CONFIG_COUNT = '2'
-$env:GIT_CONFIG_KEY_0 = 'url.https://github.com/.insteadOf'
-$env:GIT_CONFIG_VALUE_0 = 'ssh://git@github.com/'
-$env:GIT_CONFIG_KEY_1 = 'url.https://github.com/.insteadOf'
-$env:GIT_CONFIG_VALUE_1 = 'git@github.com:'
 & "C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe" --expose-internals `
   "<dsh>\node_modules\@deepseek-ai\dsh-desktop-host\lib\cli.js" `
   plugin --profile desktop add "git+https://github.com/menghun3-cn/dsh-usage-stats.git"
