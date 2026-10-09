@@ -234,7 +234,7 @@ node scripts/check-balance.mjs
 
 ## 兼容性
 
-当前版本 `0.2.20`（适配 Harness 0.2.0-rc.2 插件规范）：
+当前版本 `0.2.28`（适配 Harness 0.2.0-rc.2 插件规范）：
 
 - **服务端**：以 Cordis 对象插件面挂载（`module.default = { name, inject, apply }`，不引入第二份 cordis 副本），路由经 `webServer.register` 注册。
 - **客户端**：以 `__ModuleLoader__` factory 格式发布 `exports["./client"]` 包，注册到 0.2.0 的 `shell.overlay` 布局槽位（直接消费平台 `react` 种子与 `react/jsx-runtime`，0.2.10+ 不再引入 `dsh-client-ui-primitives`）。
