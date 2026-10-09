@@ -41,13 +41,21 @@ if (!source.includes("window.setInterval(loadUsage, 60000)")) throw new Error("p
 if (!source.includes('translate("panel.share")')) throw new Error("share button must exist and be localized");
 if (!source.includes("function createShareCanvas")) throw new Error("the share image renderer must exist");
 if (!source.includes("S.shareBackdrop")) throw new Error("the share dialog must be part of the panel layer");
-if (!source.includes("download: `dsh-usage-")) throw new Error("the share download must carry the dsh-usage file name");
+if (!source.includes("download: shareFileName")) throw new Error("the share download must carry the dsh-usage file name");
 if (!source.includes('translate("share.download")')) throw new Error("the download action must be localized");
 if (!source.includes("const copyShareToClipboard = async")) throw new Error("the WeChat share action must exist");
 if (!source.includes("new ClipboardItem")) throw new Error("the WeChat share must write to the system clipboard");
 if (!source.includes('translate(shareCopied ? "share.copied" : "share.wechat")')) throw new Error("the WeChat button must show copy feedback");
 if (!source.includes("paint-order:stroke")) throw new Error("line value labels must knock out the polyline behind them");
 if (!source.includes("strokeText")) throw new Error("the share canvas must halo line values before filling them");
+// Per-view sharing: day/month detail screens must each carry their own share
+// button, and the share button must dispatch by mode (main/day/month).
+if (!source.includes("function shareDayLayout")) throw new Error("day share layout must be a standalone function");
+if (!source.includes("function shareMonthLayout")) throw new Error("month share layout must be a standalone function");
+if (!source.includes("onShare: (day) => openShare(\"day\", day)")) throw new Error("DayDetail must wire its onShare prop to openShare('day', …)");
+if (!source.includes("openShare(\"month\", { month:")) throw new Error("month drill-down must wire its share button to openShare('month', …)");
+if (!source.includes('translate("share.subtitleDay"')) throw new Error("day share subtitle must be localized");
+if (!source.includes('translate("share.subtitleMonth"')) throw new Error("month share subtitle must be localized");
 const primaryCount = source.split("S.sharePrimary").length - 1;
 if (primaryCount !== 1) throw new Error(`S.sharePrimary must appear exactly once (the WeChat button), found ${primaryCount}`);
 if (!source.includes('badgeCount !== null && react_jsx_runtime.jsx("span", { className: S.badgeCount')) throw new Error("badge must keep the token count on the right");
@@ -269,5 +277,71 @@ if (!/usg_lineValue[^>]*>1\.23亿/.test(lineMarkup)) throw new Error("line point
 const hitCount = (lineMarkup.match(/usg_lineHit/g) ?? []).length;
 if (hitCount !== 12) throw new Error(`line chart must keep 12 clickable points, got ${hitCount}`);
 console.log("12-month line chart render ok, markup length:", lineMarkup.length);
+
+// ---- per-view share layouts ----
+// Day share: 3 buckets + per-model rows, canvas height grows with model count.
+const { shareDayLayout, shareMonthLayout } = exports_;
+const dayForShare = {
+	date: "2025-08-15",
+	tokens: 12345,
+	inputTokens: 8000,
+	outputTokens: 3000,
+	cacheReadTokens: 1345,
+	cacheHitRate: 0.42,
+	models: [
+		{ model: "deepseek/deepseek-chat", tokens: 10000, inputTokens: 7000, outputTokens: 2000, cacheReadTokens: 1000, cacheHitRate: 0.5 },
+		{ model: "openai/gpt-4o-mini", tokens: 2345, inputTokens: 1000, outputTokens: 1000, cacheReadTokens: 345, cacheHitRate: 0.3 }
+	]
+};
+const dayLayout = shareDayLayout(dayForShare, { title: "T", subtitle: "S" });
+if (dayLayout.mode !== "day") throw new Error("day layout must tag itself with mode 'day'");
+if (dayLayout.buckets.length !== 3) throw new Error("day layout must render 3 buckets (input/output/cacheRead)");
+if (dayLayout.buckets[0].key !== "input") throw new Error("first bucket must be input");
+if (dayLayout.models.length !== 2) throw new Error("day layout must list every model in the day entry");
+const dayDrawCalls = [];
+const dayStubCtx = new Proxy({}, {
+	get(target, key) {
+		if (typeof key !== "string") return void 0;
+		dayDrawCalls.push(key);
+		const fn = (...args) => { dayDrawCalls.push(`${key}!`); return void 0; };
+		fn.call = Function.prototype.call;
+		return fn;
+	}
+});
+drawShare(dayStubCtx, dayLayout, { stats: demoStats, translate: (k) => k, locale: "zh", footerNote: "F" });
+for (const expected of ["fillRect", "fillText"]) {
+	if (!dayDrawCalls.includes(expected)) throw new Error(`day share drawing must ${expected}`);
+}
+if (dayDrawCalls.filter((c) => c === "fillRect!").length < 3) throw new Error(`day share image must paint hero card + bucket fills + model tracks, got ${dayDrawCalls.filter((c) => c === "fillRect!").length}`);
+console.log("day share layout + draw smoke ok,", dayDrawCalls.length, "ctx calls");
+
+// Month share: monthly total + per-day horizontal bars sorted desc.
+const monthDays = [
+	{ date: "2025-08-04", tokens: 12345, cacheHitRate: 0.42 },
+	{ date: "2025-08-03", tokens: 8000, cacheHitRate: 0.5 },
+	{ date: "2025-08-02", tokens: 200, cacheHitRate: 0.3 },
+	{ date: "2025-08-01", tokens: 100, cacheHitRate: 0.4 }
+];
+const monthLayout = shareMonthLayout("2025-08", monthDays, { title: "T", subtitle: "S" });
+if (monthLayout.mode !== "month") throw new Error("month layout must tag itself with mode 'month'");
+if (monthLayout.dayBars.length !== 4) throw new Error("month layout must render every recorded day");
+if (monthLayout.dayBars[0].tokens !== 12345) throw new Error("month bars must be sorted newest→oldest (largest first)");
+if (monthLayout.topDay.date !== "2025-08-04") throw new Error("month layout must surface the top day");
+const monthDrawCalls = [];
+const monthStubCtx = new Proxy({}, {
+	get(target, key) {
+		if (typeof key !== "string") return void 0;
+		monthDrawCalls.push(key);
+		const fn = (...args) => { monthDrawCalls.push(`${key}!`); return void 0; };
+		fn.call = Function.prototype.call;
+		return fn;
+	}
+});
+drawShare(monthStubCtx, monthLayout, { stats: demoStats, translate: (k) => k, locale: "zh", footerNote: "F" });
+for (const expected of ["fillRect", "fillText"]) {
+	if (!monthDrawCalls.includes(expected)) throw new Error(`month share drawing must ${expected}`);
+}
+if (monthDrawCalls.filter((c) => c === "fillText!").length < 4) throw new Error("month share image must label every day's tokens");
+console.log("month share layout + draw smoke ok,", monthDrawCalls.length, "ctx calls");
 
 console.log("SMOKE TEST PASSED");
